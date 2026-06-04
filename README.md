@@ -58,9 +58,9 @@ Summary of diagnostic capabilities evaluated on the hold-out testing partition (
 
 | Classification Model | Accuracy | Sensitivity (Recall) | Specificity | AUC-ROCScore |
 | :--- | :---: | :---: | :---: | :---: |
-| **L1-Logistic Regression** | **98.3%** | **98.1%** | **98.6%** | **0.998 (Outstanding)** |
-| **Linear Discriminant Analysis (LDA)** | 96.7% | 94.3% | 100.0% | 0.992 |
-| **Regularized QDA** | 95.0% | 91.5% | 100.0% | 0.985 |
+| **L1-Logistic Regression** | **95.9%** | **97.8%** | **94.7%** | **0.979** |
+| **Linear Discriminant Analysis (LDA)** | 92.6% | 97.8% | 89.3% | 0.971 |
+| **Regularized QDA** | 95.0% | 97.8% | 93.3% | 0.980 |
 
 ---
 
