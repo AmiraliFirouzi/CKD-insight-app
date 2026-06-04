@@ -1,0 +1,1526 @@
+---
+title: "Chronic Kidney Disease Classification"
+subtitle: "Interactive Classification using LDA, QDA & Logistic Regression"
+author: "Amirali Firouzi"
+date: "2026-05-23"
+output:
+  html_document:
+    toc: true
+    toc_float:
+      collapsed: true
+      smooth_scroll: true
+    number_sections: true
+    code_folding: hide
+    theme: flatly
+    highlight: tango
+    self_contained: false
+  pdf_document:
+    toc: true
+    number_sections: true
+runtime: shiny
+---
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+
+/* ─── CSS Variables ──────────────────────────────────────────── */
+:root {
+  --ink:        #0e1117;
+  --ink-muted:  #4b5563;
+  --ink-faint:  #9ca3af;
+  --surface:    #ffffff;
+  --surface-2:  #f8f9fb;
+  --surface-3:  #f1f3f6;
+  --border:     #e5e7eb;
+  --accent:     #c0392b;
+  --accent-2:   #1a3a5c;
+  --accent-3:   #0e7c5a;
+  --accent-glow:rgba(192,57,43,0.12);
+  --radius:     12px;
+  --radius-lg:  20px;
+  --shadow-sm:  0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md:  0 4px 16px rgba(0,0,0,0.07), 0 2px 6px rgba(0,0,0,0.04);
+  --shadow-lg:  0 12px 40px rgba(0,0,0,0.09), 0 4px 12px rgba(0,0,0,0.05);
+  --mono:       'JetBrains Mono', monospace;
+  --sans:       'DM Sans', sans-serif;
+  --serif:      'DM Serif Display', serif;
+}
+
+/* ─── Reset & Base ───────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: var(--sans);
+  font-weight: 400;
+  background: #f4f5f7;
+  color: var(--ink);
+  line-height: 1.75;
+  margin: 0;
+  padding: 0;
+}
+
+/* ─── Main Container ─────────────────────────────────────────── */
+.main-container {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  padding: 52px 56px;
+  box-shadow: var(--shadow-lg);
+  margin: 32px auto;
+  max-width: 960px;
+  border: 1px solid var(--border);
+}
+
+/* ─── Document Header ────────────────────────────────────────── */
+.title-banner {
+  border-bottom: 1.5px solid var(--border);
+  padding-bottom: 28px;
+  margin-bottom: 40px;
+}
+
+/* ─── Headings ───────────────────────────────────────────────── */
+h1.title {
+  font-family: var(--serif);
+  font-size: 2.6em;
+  font-weight: 400;
+  color: var(--ink);
+  line-height: 1.2;
+  margin: 0 0 8px;
+  letter-spacing: -0.02em;
+}
+
+h1.title::after {
+  content: '';
+  display: block;
+  width: 48px;
+  height: 3px;
+  background: var(--accent);
+  margin-top: 14px;
+  border-radius: 2px;
+}
+
+h3.subtitle {
+  font-family: var(--sans);
+  font-size: 1em;
+  font-weight: 400;
+  color: var(--ink-muted);
+  margin: 0 0 4px;
+  letter-spacing: 0.01em;
+}
+
+h4.author, h4.date {
+  font-family: var(--mono);
+  font-size: 0.78em;
+  font-weight: 400;
+  color: var(--ink-faint);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin: 2px 0;
+}
+
+h1:not(.title) {
+  font-family: var(--serif);
+  font-size: 1.75em;
+  font-weight: 400;
+  color: var(--ink);
+  border: none;
+  padding: 0;
+  margin: 52px 0 16px;
+  letter-spacing: -0.01em;
+  position: relative;
+  padding-left: 20px;
+}
+
+h1:not(.title)::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 80%;
+  background: var(--accent);
+  border-radius: 2px;
+}
+
+h2 {
+  font-family: var(--sans);
+  font-size: 1.2em;
+  font-weight: 600;
+  color: var(--accent-2);
+  border: none;
+  padding: 0;
+  margin: 36px 0 12px;
+  letter-spacing: -0.01em;
+}
+
+h2::before {
+  content: '//  ';
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: 0.85em;
+  font-weight: 400;
+}
+
+h3 {
+  font-family: var(--sans);
+  font-size: 1.05em;
+  font-weight: 500;
+  color: var(--ink);
+  border: none;
+  padding: 0;
+  margin: 28px 0 10px;
+}
+
+/* ─── Body Text ──────────────────────────────────────────────── */
+p {
+  color: var(--ink-muted);
+  font-size: 0.96em;
+  line-height: 1.8;
+  margin: 0 0 14px;
+}
+
+/* ─── Inline Code ────────────────────────────────────────────── */
+code:not(pre code) {
+  font-family: var(--mono);
+  font-size: 0.82em;
+  background: var(--surface-3);
+  color: var(--accent);
+  padding: 2px 7px;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+}
+
+/* ─── Code Blocks ────────────────────────────────────────────── */
+pre {
+  background: #0e1117 !important;
+  border-radius: var(--radius) !important;
+  border: 1px solid #1e2430 !important;
+  padding: 20px 24px !important;
+  margin: 16px 0 24px !important;
+  overflow-x: auto;
+  box-shadow: var(--shadow-sm) !important;
+}
+
+pre code {
+  font-family: var(--mono) !important;
+  font-size: 0.83em !important;
+  color: #e2e8f0 !important;
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+}
+
+/* Code folding button */
+.code-folding-btn {
+  background: var(--surface-2) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 6px !important;
+  color: var(--ink-muted) !important;
+  font-family: var(--mono) !important;
+  font-size: 0.75em !important;
+  padding: 3px 10px !important;
+  transition: all 0.15s ease !important;
+}
+.code-folding-btn:hover {
+  background: var(--surface-3) !important;
+  color: var(--accent) !important;
+  border-color: var(--accent) !important;
+}
+
+/* ─── Lists ──────────────────────────────────────────────────── */
+ul, ol {
+  color: var(--ink-muted);
+  font-size: 0.96em;
+  padding-left: 1.4em;
+  margin: 0 0 16px;
+}
+
+ul li, ol li {
+  margin-bottom: 6px;
+  line-height: 1.7;
+}
+
+ul li::marker { color: var(--accent); }
+ol li::marker { color: var(--accent); font-family: var(--mono); font-size: 0.9em; }
+
+/* ─── Blockquote / Callout ───────────────────────────────────── */
+blockquote {
+  border-left: 3px solid var(--accent);
+  background: var(--accent-glow);
+  margin: 20px 0;
+  padding: 14px 20px;
+  border-radius: 0 var(--radius) var(--radius) 0;
+  color: var(--ink-muted);
+  font-size: 0.95em;
+}
+
+/* ─── Tables ─────────────────────────────────────────────────── */
+.table-responsive { border-radius: var(--radius); overflow: hidden; }
+
+table.table {
+  font-family: var(--sans);
+  font-size: 0.88em;
+  border-collapse: collapse;
+  width: 100%;
+}
+
+table.table thead th {
+  background: var(--accent-2) !important;
+  color: #ffffff !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.03em;
+  font-size: 0.82em;
+  text-transform: uppercase;
+  padding: 12px 16px !important;
+  border: none !important;
+}
+
+table.table tbody tr {
+  border-bottom: 1px solid var(--border);
+  transition: background 0.1s ease;
+}
+
+table.table tbody tr:hover {
+  background: var(--surface-2) !important;
+}
+
+table.table tbody td {
+  padding: 10px 16px !important;
+  color: var(--ink-muted);
+  border: none !important;
+}
+
+table.table tbody tr:first-child td { border-top: none !important; }
+
+/* ─── Shiny Panels ───────────────────────────────────────────── */
+.well {
+  background: var(--surface-2) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius) !important;
+  box-shadow: none !important;
+  padding: 20px 24px !important;
+}
+
+/* ─── Shiny Buttons ──────────────────────────────────────────── */
+.btn-primary, .btn-default.shiny-bound-input {
+  font-family: var(--sans) !important;
+  font-weight: 600 !important;
+  font-size: 0.88em !important;
+  letter-spacing: 0.02em !important;
+  background: var(--accent) !important;
+  color: #fff !important;
+  border: none !important;
+  border-radius: 50px !important;
+  padding: 9px 26px !important;
+  transition: all 0.2s ease !important;
+  box-shadow: 0 3px 12px rgba(192,57,43,0.3) !important;
+  cursor: pointer !important;
+}
+
+.btn-primary:hover, .btn-default.shiny-bound-input:hover {
+  background: #a93226 !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 6px 18px rgba(192,57,43,0.38) !important;
+}
+
+/* ─── Form Labels ────────────────────────────────────────────── */
+.shiny-input-container label {
+  font-family: var(--sans) !important;
+  font-size: 0.78em !important;
+  font-weight: 600 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
+  color: var(--ink-muted) !important;
+  margin-bottom: 5px !important;
+}
+
+/* ─── Form Controls ──────────────────────────────────────────── */
+.form-control {
+  font-family: var(--sans) !important;
+  font-size: 0.9em !important;
+  border: 1.5px solid var(--border) !important;
+  border-radius: 8px !important;
+  padding: 7px 12px !important;
+  color: var(--ink) !important;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease !important;
+  background: var(--surface) !important;
+}
+
+.form-control:focus {
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 3px rgba(192,57,43,0.1) !important;
+  outline: none !important;
+}
+
+/* ─── Metric / Result Cards ──────────────────────────────────── */
+.metric-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin: 24px 0;
+}
+
+.metric-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  box-shadow: var(--shadow-sm);
+}
+
+.metric-card .metric-label {
+  font-size: 0.72em;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--ink-faint);
+  margin: 0 0 6px;
+}
+
+.metric-card .metric-value {
+  font-family: var(--serif);
+  font-size: 1.7em;
+  color: var(--ink);
+  margin: 0;
+  line-height: 1;
+}
+
+.metric-card .metric-model {
+  font-size: 0.72em;
+  color: var(--ink-faint);
+  margin: 5px 0 0;
+  font-family: var(--mono);
+}
+
+/* ─── Section Divider ────────────────────────────────────────── */
+.section-divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 44px 0;
+}
+
+/* ─── TOC Sidebar ────────────────────────────────────────────── */
+#TOC {
+  font-family: var(--sans) !important;
+  font-size: 0.82em !important;
+  background: var(--surface) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius) !important;
+  padding: 16px !important;
+  box-shadow: var(--shadow-sm) !important;
+}
+
+#TOC ul { list-style: none !important; padding-left: 10px !important; }
+#TOC li { margin: 4px 0 !important; }
+#TOC a { color: var(--ink-muted) !important; text-decoration: none !important; transition: color 0.1s !important; }
+#TOC a:hover { color: var(--accent) !important; }
+
+/* ─── Navbar ─────────────────────────────────────────────────── */
+.navbar {
+  background: var(--surface) !important;
+  border-bottom: 1px solid var(--border) !important;
+  box-shadow: none !important;
+}
+
+.navbar-brand {
+  font-family: var(--sans) !important;
+  font-weight: 600 !important;
+  color: var(--ink) !important;
+}
+
+/* ─── DataTable styling ──────────────────────────────────────── */
+.dataTables_wrapper {
+  font-family: var(--sans) !important;
+  font-size: 0.88em !important;
+}
+
+.dataTables_wrapper .dataTables_filter input {
+  border: 1.5px solid var(--border) !important;
+  border-radius: 8px !important;
+  padding: 5px 10px !important;
+  font-family: var(--sans) !important;
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button.current {
+  background: var(--accent) !important;
+  color: #fff !important;
+  border: none !important;
+  border-radius: 6px !important;
+}
+
+/* ─── Plot area ──────────────────────────────────────────────── */
+.shiny-plot-output, .plot-container {
+  border-radius: var(--radius) !important;
+  overflow: hidden !important;
+  border: 1px solid var(--border) !important;
+  box-shadow: var(--shadow-sm) !important;
+  margin: 16px 0 !important;
+  background: var(--surface) !important;
+}
+
+/* ─── Result box (custom) ────────────────────────────────────── */
+.result-box {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--accent-3);
+  padding: 20px 24px;
+  border-radius: 0 var(--radius) var(--radius) 0;
+  font-size: 0.96em;
+  margin-top: 24px;
+}
+
+/* ─── Info badge ─────────────────────────────────────────────── */
+.info-badge {
+  display: inline-block;
+  background: var(--accent);
+  color: white;
+  border-radius: 50px;
+  padding: 2px 12px;
+  font-size: 0.72em;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-left: 8px;
+  vertical-align: middle;
+  font-family: var(--sans);
+}
+
+/* ─── Chapter number decoration ──────────────────────────────── */
+.section-number {
+  font-family: var(--mono);
+  font-size: 0.7em;
+  color: var(--accent);
+  font-weight: 400;
+}
+
+/* ─── Shiny app card wrapper ─────────────────────────────────── */
+.shiny-app-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-md);
+  margin: 24px 0;
+}
+
+/* ─── Scrollbar ──────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--surface-2); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--ink-faint); }
+
+/* ─── Math equations ─────────────────────────────────────────── */
+.math { color: var(--accent-2); }
+
+/* ─── KableExtra overrides ───────────────────────────────────── */
+.kable_wrapper .caption {
+  font-family: var(--sans);
+  font-size: 0.85em;
+  color: var(--ink-muted);
+  margin-bottom: 10px;
+  font-style: italic;
+}
+
+/* ─── Responsive ─────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .main-container { padding: 28px 24px; margin: 16px; }
+  h1.title { font-size: 2em; }
+  .metric-row { grid-template-columns: repeat(2, 1fr); }
+}
+</style>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE,
+                      fig.align = "center", out.width = "100%",
+                      fig.width = 9, fig.height = 5)
+options(shiny.suppressMissingContextError = TRUE)
+
+# Shared ggplot2 theme for all plots
+theme_ckd <- function(base_size = 11) {
+  theme_minimal(base_size = base_size, base_family = "sans") +
+    theme(
+      plot.title        = element_text(size = base_size + 2, face = "bold",
+                                       color = "#1a3a5c", margin = margin(b = 5)),
+      plot.subtitle     = element_text(size = base_size - 1, color = "#6b7280",
+                                       margin = margin(b = 14)),
+      plot.caption      = element_text(size = base_size - 2, color = "#9ca3af",
+                                       margin = margin(t = 10), hjust = 0),
+      axis.title        = element_text(size = base_size - 1, color = "#4b5563", face = "plain"),
+      axis.text         = element_text(size = base_size - 2, color = "#6b7280"),
+      panel.grid.major  = element_line(color = "#f1f3f6", linewidth = 0.5),
+      panel.grid.minor  = element_blank(),
+      strip.text        = element_text(size = base_size - 1, face = "bold", color = "#1a3a5c"),
+      strip.background  = element_rect(fill = "#f8f9fb", color = "#e5e7eb"),
+      legend.text       = element_text(size = base_size - 2, color = "#4b5563"),
+      legend.title      = element_text(size = base_size - 2, face = "bold", color = "#4b5563"),
+      legend.background = element_rect(fill = "transparent"),
+      plot.background   = element_rect(fill = "transparent", color = NA),
+      panel.background  = element_rect(fill = "white", color = "#e5e7eb", linewidth = 0.5),
+      panel.border      = element_rect(fill = NA, color = "#e5e7eb", linewidth = 0.5)
+    )
+}
+
+# Palette
+pal <- c("no" = "#0e7c5a", "yes" = "#c0392b")
+pal2 <- c("Logistic" = "#c0392b", "LDA" = "#1a3a5c", "Regularized QDA" = "#0e7c5a")
+```
+
+# Problem Statement
+
+Chronic Kidney Disease (CKD) is a progressive condition often asymptomatic until late stages, leading to dialysis or transplantation. Early detection via simple blood and urine tests can save lives.
+
+We have a dataset of 400 patients with **26 clinical features** (age, blood pressure, specific gravity, albumin, red/white blood cells, blood glucose, urea, creatinine, sodium, potassium, hemoglobin, etc.). The goal is to build a classification model that predicts whether a patient has **CKD (yes)** or **not (no)**.
+
+## Value of the Solution
+
+* Enables rapid identification of high-risk individuals using simple tests.
+* Captures complex patterns that may be missed by human experts.
+* Reduces diagnostic cost and time.
+
+# Proposed Solution
+
+We implement and compare three classical machine learning models:
+
+* **Logistic Regression**: estimates probability of disease; provides interpretable coefficients.
+* **Linear Discriminant Analysis (LDA)**: assumes normal distribution and equal covariance matrices across classes.
+* **Quadratic Discriminant Analysis (QDA)**: a generalization that allows different covariance matrices per class, offering more flexibility at the cost of requiring more data.
+
+# Implementation
+
+This section presents the complete practical workflow of the project, from data loading to model evaluation. All code is written using the modern `tidymodels` framework, which provides a unified interface for preprocessing, modeling, and assessment.
+
+**Implementation steps include:**
+
+1. Loading required packages  
+2. Reading and cleaning the data  
+3. Splitting data into training and testing sets  
+4. Defining the preprocessing recipe  
+5. Specifying and training LDA, QDA, and Logistic Regression models  
+6. Making predictions on the test set  
+7. Calculating evaluation metrics  
+8. Building a prediction function for new data (for the interactive tool)
+
+## Loading Required Packages
+
+We load essential libraries for the project. `tidymodels` is a modern framework that unifies preprocessing, modeling, and evaluation under a consistent syntax. `shiny` allows us to build an interactive web application for real-time predictions. Setting a random seed `(set.seed(1323))` ensures reproducibility — the same random splits and results every time the code runs.
+
+```{r packages}
+packages <- c("tidyverse", "tidymodels", "janitor", "shiny", "knitr",
+              "kableExtra", "rsample", "recipes", "DT", "skimr",
+              "corrplot", "themis", "embed", "discrim", "MASS",
+              "klaR", "yardstick", "ggplot2", "pROC", "glmnet",
+              "gridExtra")
+
+for(p in packages) {
+  if(!require(p, character.only = TRUE, quietly = TRUE)) {
+    install.packages(p, quiet = TRUE)
+    library(p, character.only = TRUE, quietly = TRUE)
+  }
+}
+
+set.seed(1323)
+```
+
+## Data Reading and Cleaning
+
+Data is imported from a CSV file using `read.csv()`. `clean_names()` standardizes column names (lowercase, no spaces). The target variable `classification` is converted to a factor with meaningful levels: `"no"` (healthy) and `"yes"` (CKD). Columns that should be numeric but are stored as characters (e.g., `pcv`, `wc`, `rc`) are coerced to numeric, with empty strings replaced by `NA`. Categorical variables are converted to factors, and empty strings become `NA`. Finally, `dm` (diabetes mellitus) and `cad` (coronary artery disease) are trimmed of whitespace and standardized to lowercase to ensure consistent factor levels.
+
+```{r data_loading}
+# Reading data
+kidney_disease <- read.csv("data/kidney_disease.csv") %>%
+  clean_names()
+
+# Clean and preprocess
+kidney_clean <- kidney_disease %>%
+  dplyr::select(-id) %>%
+  mutate(
+    classification = factor(ifelse(classification == "ckd", "yes", "no"),
+                            levels = c("no", "yes")),
+    across(c(pcv, wc, rc), ~ as.numeric(ifelse(.x == "", NA, .x))),
+    across(c(rbc, pc, pcc, ba, htn, pe, ane, appet),
+           ~ factor(ifelse(.x == "", NA, .x))),
+    dm  = factor(trimws(tolower(ifelse(dm  == "", NA, dm))),  levels = c("no", "yes")),
+    cad = factor(trimws(tolower(ifelse(cad == "", NA, cad))), levels = c("no", "yes"))
+  )
+
+# Display data table
+datatable(
+  kidney_clean,
+  options = list(
+    pageLength = 8,
+    scrollX = TRUE,
+    dom = 'Bfrtip',
+    initComplete = JS(
+      "function(settings, json) {",
+      "$(this.api().table().header()).css({'background-color': '#1a3a5c', 'color': '#fff'});",
+      "}"
+    )
+  ),
+  class = 'compact hover stripe',
+  rownames = FALSE,
+  filter = 'top'
+) %>%
+  formatStyle(
+    columns = "classification",
+    backgroundColor = styleEqual(c("no", "yes"), c("#dcfce7", "#fee2e2")),
+    color = styleEqual(c("no", "yes"), c("#166534", "#991b1b")),
+    fontWeight = "600"
+  )
+```
+
+## Exploratory Data Analysis
+
+Exploratory Data Analysis (EDA) is the first and most critical step in any data science project. The goals include understanding data structure, identifying patterns, detecting outliers, examining variable distributions, and discovering relationships between features and the target variable.
+
+### Summary Statistics
+
+```{r eda_summary}
+skim_data <- skim(kidney_clean)
+
+datatable(
+  as.data.frame(skim_data),
+  options = list(
+    pageLength = 15,
+    scrollX = TRUE,
+    dom = 'Bfrtip',
+    order = list(list(1, 'asc')),
+    initComplete = JS(
+      "function(settings, json) {",
+      "$(this.api().table().header()).css({'background-color': '#1a3a5c', 'color': '#fff'});",
+      "}"
+    )
+  ),
+  class = 'compact hover stripe',
+  rownames = FALSE,
+  caption = "Comprehensive Data Quality Report"
+) %>%
+  formatStyle(
+    'complete_rate',
+    background = styleColorBar(c(0, 1), '#bfdbfe'),
+    backgroundSize = '100% 80%',
+    backgroundRepeat = 'no-repeat',
+    backgroundPosition = 'left center'
+  ) %>%
+  formatStyle(
+    'n_missing',
+    background = styleColorBar(skim_data$n_missing, '#fca5a5'),
+    backgroundSize = '100% 80%',
+    backgroundRepeat = 'no-repeat',
+    backgroundPosition = 'left center'
+  )
+```
+
+### Missing Values per Column
+
+```{r eda_missing, fig.height=4.5}
+missing_counts <- kidney_clean %>%
+  summarise(across(everything(), ~ sum(is.na(.)))) %>%
+  pivot_longer(everything(), names_to = "variable", values_to = "missing_count") %>%
+  filter(missing_count > 0) %>%
+  arrange(desc(missing_count))
+
+ggplot(missing_counts, aes(x = reorder(variable, missing_count),
+                            y = missing_count,
+                            fill = missing_count)) +
+  geom_col(width = 0.65) +
+  geom_text(aes(label = missing_count),
+            hjust = -0.3, size = 3.2, color = "#4b5563", fontface = "bold") +
+  coord_flip() +
+  scale_fill_gradient(low = "#fca5a5", high = "#991b1b", guide = "none") +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.15))) +
+  labs(title = "Missing Values by Feature",
+       subtitle = "Features with at least one missing observation",
+       x = NULL, y = "Missing count",
+       caption = "Source: UCI Chronic Kidney Disease dataset") +
+  theme_ckd()
+```
+
+### Target Variable Distribution (Class Balance)
+
+Examining class balance between healthy and diseased patients is crucial for selecting appropriate evaluation metrics.
+
+```{r eda_class, fig.height=4}
+class_counts <- kidney_clean %>%
+  count(classification) %>%
+  mutate(
+    percentage = n / sum(n) * 100,
+    label = paste0(n, "\n", round(percentage, 1), "%"),
+    fill_color = c("#0e7c5a", "#c0392b")
+  )
+
+ggplot(class_counts, aes(x = classification, y = n, fill = classification)) +
+  geom_col(width = 0.5) +
+  geom_text(aes(label = label), vjust = 1.4, size = 4.2,
+            fontface = "bold", color = "white") +
+  scale_fill_manual(values = pal, guide = "none") +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.08))) +
+  labs(title = "Class Distribution",
+       subtitle = "CKD patients vs. healthy individuals",
+       x = "Disease status", y = "Count",
+       caption = "Source: UCI Chronic Kidney Disease dataset") +
+  theme_ckd()
+```
+
+### Distribution of Key Numeric Variables
+
+For important numeric variables, we create histograms to examine distribution shape and skewness.
+
+```{r eda_numeric, fig.height=6}
+key_numeric <- c("age", "bp", "bgr", "bu", "sc", "hemo", "sod", "pot")
+
+kidney_clean %>%
+  dplyr::select(all_of(key_numeric), classification) %>%
+  pivot_longer(-classification, names_to = "variable", values_to = "value") %>%
+  ggplot(aes(x = value, fill = classification)) +
+  geom_histogram(alpha = 0.8, bins = 25, position = "identity", color = "white",
+                 linewidth = 0.2) +
+  facet_wrap(~variable, scales = "free", ncol = 4) +
+  scale_fill_manual(values = pal, name = "Disease status",
+                    labels = c("no" = "Healthy", "yes" = "CKD")) +
+  labs(title = "Distribution of Key Numeric Features",
+       subtitle = "Stratified by disease status",
+       x = NULL, y = "Count") +
+  theme_ckd(base_size = 10) +
+  theme(legend.position = "bottom",
+        panel.spacing = unit(0.8, "lines"))
+```
+
+### Boxplots for Outlier Detection
+
+Boxplots are effective for identifying outliers and comparing variable distributions across classes.
+
+```{r eda_boxplot, fig.height=6}
+kidney_clean %>%
+  dplyr::select(all_of(key_numeric), classification) %>%
+  pivot_longer(-classification, names_to = "variable", values_to = "value") %>%
+  ggplot(aes(x = classification, y = value, fill = classification)) +
+  geom_boxplot(alpha = 0.8, outlier.color = "#c0392b",
+               outlier.size = 1.5, outlier.alpha = 0.6,
+               color = "#374151", linewidth = 0.4) +
+  facet_wrap(~variable, scales = "free", ncol = 4) +
+  scale_fill_manual(values = pal, guide = "none") +
+  scale_x_discrete(labels = c("no" = "Healthy", "yes" = "CKD")) +
+  labs(title = "Feature Distributions by Disease Status",
+       subtitle = "Boxplots with outlier overlay",
+       x = NULL, y = "Value") +
+  theme_ckd(base_size = 10) +
+  theme(panel.spacing = unit(0.8, "lines"))
+```
+
+### Correlation Matrix
+
+We examine correlations between numeric variables to identify redundant features. Highly correlated predictors may introduce multicollinearity and reduce model interpretability.
+
+```{r eda_corr, fig.height=6.5}
+numeric_cols <- kidney_clean %>% dplyr::select(where(is.numeric))
+cor_matrix   <- cor(numeric_cols, use = "complete.obs")
+
+corrplot(cor_matrix,
+         method = "color",
+         type   = "upper",
+         order  = "hclust",
+         tl.col = "#1a3a5c",
+         tl.srt = 45,
+         tl.cex = 0.82,
+         addCoef.col = "#374151",
+         number.cex  = 0.62,
+         col  = colorRampPalette(c("#c0392b", "#f8f9fb", "#0e7c5a"))(200),
+         title = "Correlation Matrix — Numeric Features",
+         mar   = c(0, 0, 2.2, 0),
+         cl.cex = 0.7,
+         bg = "white")
+```
+
+### Categorical Variables — Frequency Analysis
+
+For categorical variables, we examine frequency distributions by target class.
+
+```{r eda_categorical, fig.height=6}
+categorical_vars <- c("rbc", "pc", "htn", "dm", "cad", "appet", "ane")
+
+kidney_clean %>%
+  dplyr::select(all_of(categorical_vars), classification) %>%
+  pivot_longer(-classification, names_to = "variable", values_to = "value") %>%
+  filter(!is.na(value)) %>%
+  ggplot(aes(x = value, fill = classification)) +
+  geom_bar(position = "dodge", alpha = 0.85, width = 0.65,
+           color = "white", linewidth = 0.2) +
+  facet_wrap(~variable, scales = "free", ncol = 3) +
+  scale_fill_manual(values = pal, name = "Disease status",
+                    labels = c("no" = "Healthy", "yes" = "CKD")) +
+  labs(title = "Categorical Feature Distributions",
+       subtitle = "Grouped by disease status",
+       x = NULL, y = "Count") +
+  theme_ckd(base_size = 10) +
+  theme(
+    axis.text.x    = element_text(angle = 30, hjust = 1),
+    legend.position = "bottom",
+    panel.spacing  = unit(0.8, "lines")
+  )
+```
+
+## Train-Test Split
+
+The dataset is split into training (70%) and testing (30%) sets using stratified sampling via `strata = classification`. Stratification preserves the original class proportion (CKD vs. non-CKD) in both subsets, preventing bias in models sensitive to class imbalance. The seed ensures the split is reproducible.
+
+```{r split}
+set.seed(1323)
+kidney_split <- initial_split(kidney_clean, prop = 0.7, strata = classification)
+train <- training(kidney_split)
+test  <- testing(kidney_split)
+```
+
+## Preprocessing Recipe
+
+A `recipe` defines all preprocessing steps to be applied identically to training, testing, and new data.
+
+- `step_zv`: removes zero-variance predictors  
+- `step_nzv`: removes near-zero-variance predictors  
+- `step_corr`: removes highly correlated numeric features (threshold = 0.75)  
+- `step_impute_knn`: imputes missing numeric values using k-nearest neighbors  
+- `step_impute_mode`: imputes missing categorical values using the mode  
+- `step_normalize`: standardizes numeric predictors to zero mean and unit variance  
+- `step_dummy`: encodes categorical variables as binary dummy variables
+
+```{r recipe}
+set.seed(1323)
+
+kidney_recipe <- recipe(classification ~ ., data = train) %>%
+  step_zv(all_predictors()) %>%
+  step_nzv(all_predictors()) %>%
+  step_corr(all_numeric_predictors(), threshold = 0.75) %>%
+  step_impute_knn(all_numeric_predictors()) %>%
+  step_impute_mode(all_nominal_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_dummy(all_nominal_predictors(), one_hot = FALSE)
+
+recipe_prep <- prep(kidney_recipe)
+train_clean  <- bake(recipe_prep, train)
+test_clean   <- bake(recipe_prep, test)
+```
+
+## Model Specification and Training
+
+Three classification models are defined using a `workflow` that bundles the recipe and model specification.
+
+**Logistic Regression**: Estimates probability using the sigmoid function:
+
+$$P(Y=1 \mid \mathbf{X}) = \frac{1}{1 + \exp\left(-\left(\beta_0 + \sum_{j=1}^{p} \beta_j X_j\right)\right)}$$
+
+Parameters are estimated via Maximum Likelihood Estimation (MLE). Provides interpretable odds ratios. We apply L1 regularization (`penalty = 0.01, mixture = 1`) to promote sparsity and prevent overfitting.
+
+**LDA (Linear Discriminant Analysis)**: Assumes each class follows a multivariate normal distribution with a shared covariance matrix:
+$$X \mid Y = k \sim \mathcal{N}(\mu_k,\, \Sigma)$$
+The decision boundary is linear.
+
+**Regularized QDA**: A generalization of QDA that allows different covariance matrices per class:
+$$X \mid Y = k \sim \mathcal{N}(\mu_k,\, \Sigma_k)$$
+The regularized variant (`discrim_regularized` via the `klaR` engine) shrinks class-specific covariance matrices toward a common structure, making it more robust than standard QDA when data per class is limited.
+
+```{r models}
+set.seed(1323)
+
+logistic_spec <- logistic_reg(penalty = 0.01, mixture = 1) %>%
+  set_engine("glmnet") %>%
+  set_mode("classification")
+
+logistic_wf  <- workflow() %>% add_recipe(kidney_recipe) %>% add_model(logistic_spec)
+logistic_fit <- fit(logistic_wf, data = train)
+
+lda_spec <- discrim_linear() %>%
+  set_engine("MASS") %>%
+  set_mode("classification")
+
+lda_wf  <- workflow() %>% add_recipe(kidney_recipe) %>% add_model(lda_spec)
+lda_fit <- fit(lda_wf, data = train)
+
+qda_spec <- discrim_regularized() %>%
+  set_engine("klaR") %>%
+  set_mode("classification")
+
+qda_wf  <- workflow() %>% add_recipe(kidney_recipe) %>% add_model(qda_spec)
+qda_fit <- fit(qda_wf, data = train)
+```
+
+## Predictions & Evaluation Metrics
+
+After training the models on the prepared dataset, we generate predictions on the unseen test set (30% of the original data). The evaluation metrics help us compare model performance fairly and select the most reliable classifier for clinical use.
+
+**Key metrics calculated**:
+
+* **Accuracy** — Overall proportion of correct predictions (both CKD and non-CKD cases).
+* **Sensitivity (Recall)** — Ability to correctly identify patients who actually have CKD. High sensitivity is critical to avoid missing positive cases.
+* **Specificity** — Ability to correctly identify healthy individuals. High specificity reduces false alarms.
+* **ROC-AUC** — Measures how well the model separates the two classes across all probability thresholds.
+
+```{r evaluation}
+test_results <- test %>%
+  dplyr::select(classification) %>%
+  bind_cols(
+    predict(logistic_fit, test, type = "prob") %>%
+      rename(.pred_no_logistic = .pred_no, .pred_yes_logistic = .pred_yes),
+    predict(logistic_fit, test, type = "class") %>%
+      rename(pred_logistic = .pred_class),
+    predict(lda_fit, test, type = "prob") %>%
+      rename(.pred_no_lda = .pred_no, .pred_yes_lda = .pred_yes),
+    predict(lda_fit, test, type = "class") %>%
+      rename(pred_lda = .pred_class),
+    predict(qda_fit, test, type = "prob") %>%
+      rename(.pred_no_qda = .pred_no, .pred_yes_qda = .pred_yes),
+    predict(qda_fit, test, type = "class") %>%
+      rename(pred_qda = .pred_class)
+  )
+
+calculate_metrics <- function(data, truth_col, pred_col, prob_col) {
+  acc  <- accuracy(data,    truth = !!sym(truth_col), estimate = !!sym(pred_col))
+  sens <- sensitivity(data, truth = !!sym(truth_col), estimate = !!sym(pred_col))
+  spec <- specificity(data, truth = !!sym(truth_col), estimate = !!sym(pred_col))
+  roc_obj <- roc(
+    response  = data[[truth_col]],
+    predictor = data[[prob_col]],
+    levels    = c("no", "yes"),
+    direction = "<",
+    quiet     = TRUE
+  )
+  tibble(
+    Accuracy    = round(acc$.estimate,         3),
+    Sensitivity = round(sens$.estimate,        3),
+    Specificity = round(spec$.estimate,        3),
+    AUC         = round(as.numeric(auc(roc_obj)), 3)
+  )
+}
+
+metrics_logistic <- calculate_metrics(test_results, "classification", "pred_logistic", ".pred_yes_logistic")
+metrics_lda      <- calculate_metrics(test_results, "classification", "pred_lda",      ".pred_yes_lda")
+metrics_qda      <- calculate_metrics(test_results, "classification", "pred_qda",      ".pred_yes_qda")
+
+metrics_comparison <- bind_rows(
+  metrics_logistic %>% mutate(Model = "Logistic Regression"),
+  metrics_lda      %>% mutate(Model = "LDA"),
+  metrics_qda      %>% mutate(Model = "Regularized QDA")
+) %>% dplyr::select(Model, Accuracy, Sensitivity, Specificity, AUC)
+
+best_row <- which.max(metrics_comparison$AUC)
+
+metrics_comparison %>%
+  kable(
+    caption = "<b>Diagnostic Performance Comparison</b>",
+    align   = "lcccc",
+    escape  = FALSE
+  ) %>%
+  kable_styling(
+    bootstrap_options = c("striped", "hover", "condensed"),
+    full_width = FALSE,
+    position   = "center",
+    font_size  = 14
+  ) %>%
+  row_spec(0, bold = TRUE, color = "white", background = "#1a3a5c") %>%
+  column_spec(1, bold = TRUE, width = "16em") %>%
+  column_spec(5, bold = TRUE) %>%
+  row_spec(best_row, bold = TRUE, background = "#fef9c3",
+           extra_css = "border-left: 3px solid #c0392b;") %>%
+  add_footnote(label = "Row highlighted in yellow = best AUC.", notation = "none")
+```
+
+## Confusion Matrices
+
+Confusion matrices show the exact breakdown of correct and incorrect predictions for each model.
+
+```{r confusion_matrices, fig.height=4, fig.width=11}
+plot_conf_matrix <- function(data, truth_col, pred_col, model_name) {
+  cm    <- conf_mat(data, truth = !!sym(truth_col), estimate = !!sym(pred_col))$table
+  cm_df <- as.data.frame(cm) %>%
+    mutate(text_color = ifelse(Freq > max(Freq) * 0.45, "white", "#1a3a5c"))
+
+  ggplot(cm_df, aes(x = Prediction, y = Truth, fill = Freq)) +
+    geom_tile(color = "white", linewidth = 2) +
+    geom_text(aes(label = Freq, color = text_color),
+              size = 9, fontface = "bold") +
+    scale_fill_gradient(low = "#dbeafe", high = "#1a3a5c", guide = "none") +
+    scale_color_identity() +
+    labs(title = model_name, x = "Predicted", y = "Actual") +
+    theme_ckd(base_size = 11) +
+    theme(
+      plot.title    = element_text(hjust = 0.5, size = 12),
+      panel.grid    = element_blank(),
+      panel.border  = element_rect(fill = NA, color = "#e5e7eb"),
+      axis.text     = element_text(face = "bold", size = 11),
+      panel.background = element_rect(fill = "white", color = NA)
+    )
+}
+
+p1 <- plot_conf_matrix(test_results, "classification", "pred_logistic", "Logistic Regression")
+p2 <- plot_conf_matrix(test_results, "classification", "pred_lda",      "LDA")
+p3 <- plot_conf_matrix(test_results, "classification", "pred_qda",      "Regularized QDA")
+
+gridExtra::grid.arrange(p1, p2, p3, ncol = 3)
+```
+
+## ROC Curves Comparison
+
+The Receiver Operating Characteristic (ROC) curve plots the True Positive Rate (Sensitivity) against the False Positive Rate (1 – Specificity) at various threshold settings. The Area Under the Curve (AUC) summarizes the model's discriminative power:
+
+* **AUC = 0.5** → No discrimination (random guessing)
+* **0.7 ≤ AUC < 0.8** → Acceptable discrimination
+* **0.8 ≤ AUC < 0.9** → Excellent discrimination
+* **AUC ≥ 0.9** → Outstanding discrimination
+
+```{r roc_curves, fig.height=5.5}
+roc_logistic <- roc(test_results$classification, test_results$.pred_yes_logistic,
+                    levels = c("no", "yes"), direction = "<", quiet = TRUE)
+roc_lda      <- roc(test_results$classification, test_results$.pred_yes_lda,
+                    levels = c("no", "yes"), direction = "<", quiet = TRUE)
+roc_qda      <- roc(test_results$classification, test_results$.pred_yes_qda,
+                    levels = c("no", "yes"), direction = "<", quiet = TRUE)
+
+roc_df <- bind_rows(
+  tibble(fpr = 1 - roc_logistic$specificities,
+         tpr = roc_logistic$sensitivities, model = "Logistic"),
+  tibble(fpr = 1 - roc_lda$specificities,
+         tpr = roc_lda$sensitivities,      model = "LDA"),
+  tibble(fpr = 1 - roc_qda$specificities,
+         tpr = roc_qda$sensitivities,      model = "Regularized QDA")
+)
+
+auc_labels <- tibble(
+  model = c("Logistic", "LDA", "Regularized QDA"),
+  label = paste0(c("Logistic", "LDA", "Reg. QDA"), "  AUC = ",
+                 c(round(auc(roc_logistic), 3),
+                   round(auc(roc_lda), 3),
+                   round(auc(roc_qda), 3)))
+)
+
+ggplot(roc_df, aes(x = fpr, y = tpr, color = model)) +
+  geom_segment(aes(x = 0, y = 0, xend = 1, yend = 1),
+               linetype = "dashed", color = "#d1d5db",
+               linewidth = 0.7, inherit.aes = FALSE) +
+  geom_line(linewidth = 1.4, alpha = 0.9) +
+  scale_color_manual(
+    values = pal2,
+    name   = NULL,
+    labels = setNames(auc_labels$label, auc_labels$model)
+  ) +
+  scale_x_continuous(labels = scales::percent_format()) +
+  scale_y_continuous(labels = scales::percent_format()) +
+  coord_equal() +
+  labs(
+    title    = "ROC Curve Comparison",
+    subtitle = "All three models across the full classification threshold range",
+    x = "False Positive Rate  (1 − Specificity)",
+    y = "True Positive Rate  (Sensitivity)"
+  ) +
+  theme_ckd() +
+  theme(legend.position = c(0.72, 0.22),
+        legend.background = element_rect(fill = "white", color = "#e5e7eb",
+                                         linewidth = 0.4),
+        legend.margin = margin(6, 10, 6, 10))
+```
+
+# Feature Importance Analysis
+
+Understanding why a model makes certain predictions is crucial in medical applications. For Logistic Regression, the magnitude and sign of each coefficient indicate:
+
+* **Positive coefficient** → As the feature increases, the log-odds of CKD increase (risk factor)
+* **Negative coefficient** → As the feature increases, the log-odds of CKD decrease (protective factor)
+
+The absolute value reflects the strength of influence. We extract and visualize the top 15 most influential features. This helps clinicians focus on the most relevant biomarkers during diagnosis.
+
+```{r feature_importance, fig.height=5.5}
+extract_feature_importance <- function(fitted_workflow, penalty_val = 0.01) {
+  fitted_model <- extract_fit_parsnip(fitted_workflow)
+  if (inherits(fitted_model$fit, "glmnet")) {
+    coef_matrix <- as.matrix(coef(fitted_model$fit, s = penalty_val))
+    data.frame(
+      feature     = rownames(coef_matrix),
+      coefficient = as.numeric(coef_matrix[, 1])
+    ) %>%
+      filter(feature != "(Intercept)", coefficient != 0) %>%
+      arrange(desc(abs(coefficient))) %>%
+      slice_head(n = 15)
+  } else {
+    tidy(fitted_model) %>%
+      filter(term != "(Intercept)") %>%
+      arrange(desc(abs(estimate))) %>%
+      slice_head(n = 15) %>%
+      rename(feature = term, coefficient = estimate)
+  }
+}
+
+feature_importance <- extract_feature_importance(logistic_fit, penalty_val = 0.01)
+
+ggplot(feature_importance,
+       aes(x = reorder(feature, abs(coefficient)),
+           y = coefficient,
+           fill = coefficient > 0)) +
+  geom_col(width = 0.65) +
+  geom_hline(yintercept = 0, color = "#e5e7eb", linewidth = 0.5) +
+  coord_flip() +
+  scale_fill_manual(
+    values = c("TRUE" = "#c0392b", "FALSE" = "#1a3a5c"),
+    labels = c("TRUE" = "Positive effect (CKD risk ↑)",
+               "FALSE" = "Negative effect (CKD risk ↓)"),
+    name   = NULL
+  ) +
+  labs(
+    title    = "Feature Importance — Logistic Regression",
+    subtitle = "Top 15 features ranked by |coefficient| — L1-regularized",
+    x        = NULL,
+    y        = "Coefficient (log-odds scale)"
+  ) +
+  theme_ckd() +
+  theme(legend.position = "bottom",
+        axis.text.y = element_text(size = 10, face = "plain"))
+```
+
+# Interactive Prediction Tool
+
+```{r shiny_app, echo=FALSE}
+library(shiny)
+library(tidyverse)
+library(tidymodels)
+
+set.seed(1323)
+
+final_recipe <- recipe(classification ~ ., data = kidney_clean) %>%
+  step_zv(all_predictors()) %>%
+  step_nzv(all_predictors()) %>%
+  step_corr(all_numeric_predictors(), threshold = 0.75) %>%
+  step_impute_knn(all_numeric_predictors()) %>%
+  step_impute_mode(all_nominal_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_dummy(all_nominal_predictors(), one_hot = FALSE)
+
+final_model <- workflow() %>%
+  add_recipe(final_recipe) %>%
+  add_model(
+    logistic_reg(penalty = 0.01, mixture = 1) %>%
+      set_engine("glmnet") %>%
+      set_mode("classification")
+  ) %>%
+  fit(data = kidney_clean)
+
+# ── UI ─────────────────────────────────────────────────────────────────
+shinyApp(
+
+  ui = fluidPage(
+    tags$head(tags$style(HTML("
+      @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Serif+Display&family=JetBrains+Mono:wght@400;500&display=swap');
+
+      :root {
+        --ink:       #0e1117;
+        --muted:     #4b5563;
+        --faint:     #9ca3af;
+        --bg:        #f4f5f7;
+        --surface:   #ffffff;
+        --sf2:       #f8f9fb;
+        --border:    #e5e7eb;
+        --red:       #c0392b;
+        --navy:      #1a3a5c;
+        --green:     #0e7c5a;
+        --sans:      'DM Sans', sans-serif;
+        --mono:      'JetBrains Mono', monospace;
+        --serif:     'DM Serif Display', serif;
+        --r:         10px;
+        --r-lg:      16px;
+      }
+
+ html, body {
+  margin: 0 !important;
+  padding: 0 !important;
+  font-family: var(--sans);
+  background: var(--bg)!important;
+  color: var(--ink);
+  overflow: hidden !important;
+  height: 100vh !important;
+}
+
+      .wrap {
+        max-width: 880px;
+        margin: 0 auto;
+        padding: 24px 20px 32px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+
+      /* ── Header ── */
+      .hdr {
+        background: var(--navy);
+        border-radius: var(--r-lg);
+        padding: 24px 28px 22px;
+        display: flex;
+        align-items: center;
+        gap: 18px;
+      }
+      .hdr-icon {
+        width: 52px; height: 52px;
+        background: rgba(255,255,255,0.12);
+        border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 24px;
+        flex-shrink: 0;
+      }
+      .hdr-text h2 {
+        margin: 0; font-family: var(--serif);
+        font-size: 1.5em; font-weight: 400;
+        color: #ffffff; letter-spacing: -0.01em;
+      }
+      .hdr-text p {
+        margin: 3px 0 0;
+        font-size: 0.8em;
+        color: rgba(255,255,255,0.55);
+        font-family: var(--mono);
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+
+      /* ── Card ── */
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--r-lg);
+        padding: 22px 24px;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+      }
+      .card-label {
+        font-size: 0.7em;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--faint);
+        margin: 0 0 16px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid var(--border);
+        font-family: var(--mono);
+      }
+
+      /* ── Form ── */
+      .form-group label {
+        font-size: 0.72em !important;
+        font-weight: 600 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.06em !important;
+        color: var(--muted) !important;
+        margin-bottom: 4px !important;
+        display: block !important;
+        font-family: var(--mono) !important;
+      }
+      .form-control {
+        border: 1.5px solid var(--border) !important;
+        border-radius: 8px !important;
+        font-family: var(--sans) !important;
+        font-size: 0.88em !important;
+        color: var(--ink) !important;
+        background: var(--surface) !important;
+        height: 36px !important;
+        padding: 0 12px !important;
+        transition: border-color 0.15s, box-shadow 0.15s !important;
+      }
+      .form-control:focus {
+        border-color: var(--navy) !important;
+        box-shadow: 0 0 0 3px rgba(26,58,92,0.1) !important;
+        outline: none !important;
+      }
+      .shiny-input-container { margin-bottom: 14px !important; }
+
+      /* ── Predict Button ── */
+      #predict_btn {
+        background: var(--red) !important;
+        color: #fff !important;
+        border: none !important;
+        border-radius: 50px !important;
+        font-family: var(--sans) !important;
+        font-weight: 600 !important;
+        font-size: 0.86em !important;
+        letter-spacing: 0.03em !important;
+        padding: 10px 0 !important;
+        width: 100% !important;
+        cursor: pointer !important;
+        transition: all 0.18s ease !important;
+        box-shadow: 0 3px 12px rgba(192,57,43,0.28) !important;
+      }
+      #predict_btn:hover {
+        background: #a93226 !important;
+        transform: translateY(-1px) !important;
+        box-shadow: 0 5px 18px rgba(192,57,43,0.38) !important;
+      }
+      #predict_btn:active { transform: scale(0.98) !important; }
+
+      /* ── Result states ── */
+      .placeholder {
+        min-height: 180px;
+        display: flex; flex-direction: column;
+        align-items: center; justify-content: center;
+        color: var(--faint);
+        text-align: center;
+        gap: 10px;
+      }
+      .placeholder .p-icon { font-size: 2.4em; }
+      .placeholder p { font-size: 0.82em; margin: 0; }
+
+      .res-card {
+        border-radius: var(--r-lg);
+        padding: 22px 26px;
+        color: #fff;
+      }
+      .res-card.ckd    { background: var(--red);   border-left: none; }
+      .res-card.no-ckd { background: var(--green); border-left: none; }
+
+      .res-tag {
+        font-size: 0.68em; font-weight: 600;
+        text-transform: uppercase; letter-spacing: 0.1em;
+        opacity: 0.75; margin: 0 0 5px;
+        font-family: var(--mono);
+      }
+      .res-verdict {
+        font-family: var(--serif);
+        font-size: 1.4em; font-weight: 400;
+        margin: 0 0 14px; line-height: 1.2;
+      }
+      .res-prob {
+        font-family: var(--mono);
+        font-size: 2em; font-weight: 500;
+        margin: 0; line-height: 1;
+      }
+      .res-prob-label {
+        font-size: 0.75em; opacity: 0.7; margin: 4px 0 12px;
+      }
+      .prob-track {
+        background: rgba(255,255,255,0.25);
+        border-radius: 50px; height: 8px; overflow: hidden;
+      }
+      .prob-fill {
+        height: 100%; border-radius: 50px;
+        background: rgba(255,255,255,0.85);
+        transition: width 0.5s cubic-bezier(.4,0,.2,1);
+      }
+      .divider { border: none; border-top: 1px solid rgba(255,255,255,0.25); margin: 14px 0; }
+      .advice { margin: 0; padding: 0; list-style: none; font-size: 0.8em; opacity: 0.9; }
+      .advice li { margin-bottom: 5px; padding-left: 2px; }
+
+      /* ── Footer ── */
+      .foot {
+        text-align: center;
+        font-family: var(--mono);
+        font-size: 0.7em;
+        color: var(--faint);
+        padding-top: 4px;
+      }
+    "))),
+
+    div(class = "wrap",
+
+      # Header
+      div(class = "hdr",
+        div(class = "hdr-icon", "🩺"),
+        div(class = "hdr-text",
+          tags$h2("CKD Risk Prediction"),
+          tags$p("Logistic Regression · Chronic Kidney Disease Classifier")
+        )
+      ),
+
+      # Inputs
+      div(class = "card",
+        p(class = "card-label", "Patient Clinical Parameters"),
+        fluidRow(
+          column(3,
+            numericInput("age",  "Age (years)",             value = 50,   min = 1,   max = 120, step = 1),
+            numericInput("bp",   "Blood Pressure (mm/Hg)",  value = 120,  min = 50,  max = 250, step = 5)
+          ),
+          column(3,
+            numericInput("bgr",  "Blood Glucose (mg/dL)",   value = 120,  min = 50,  max = 500, step = 10),
+            numericInput("bu",   "Blood Urea (mg/dL)",      value = 30,   min = 5,   max = 200, step = 5)
+          ),
+          column(3,
+            numericInput("sc",   "Serum Creatinine (mg/dL)", value = 1.0, min = 0.2, max = 15,  step = 0.1),
+            numericInput("hemo", "Hemoglobin (g/dL)",        value = 12,  min = 3,   max = 20,  step = 0.5)
+          ),
+          column(3,
+            selectInput("htn", "Hypertension", choices = c("No" = "no", "Yes" = "yes")),
+            selectInput("dm",  "Diabetes",     choices = c("No" = "no", "Yes" = "yes")),
+            br(),
+            actionButton("predict_btn", "Run Prediction →", class = "btn")
+          )
+        )
+      ),
+
+      # Result
+      div(class = "card",
+        p(class = "card-label", "Diagnosis Output"),
+        uiOutput("prediction_result")
+      ),
+
+      div(class = "foot",
+        "Model trained on UCI CKD dataset (n=400)  ·  For research purposes only"
+      )
+    )
+  ),
+
+  # ── Server ─────────────────────────────────────────────────────────────────
+  server = function(input, output, session) {
+
+    prediction_result <- reactiveVal(NULL)
+
+    observeEvent(input$predict_btn, {
+      new_patient <- tibble(
+        age = input$age, bp = input$bp, bgr = input$bgr,
+        bu  = input$bu,  sc = input$sc, hemo = input$hemo,
+        htn  = factor(input$htn, levels = c("no", "yes")),
+        dm   = factor(input$dm,  levels = c("no", "yes")),
+        sg   = 1.020, al = 0, su = 0,
+        rbc  = factor("normal",     levels = c("normal", "abnormal")),
+        pc   = factor("normal",     levels = c("normal", "abnormal")),
+        pcc  = factor("notpresent", levels = c("notpresent", "present")),
+        ba   = factor("notpresent", levels = c("notpresent", "present")),
+        appet = factor("good",      levels = c("good", "poor")),
+        pe   = factor("no",         levels = c("no", "yes")),
+        ane  = factor("no",         levels = c("no", "yes")),
+        cad  = factor("no",         levels = c("no", "yes")),
+        pcv  = 40, wc = 8000, rc = 5.2, sod = 140, pot = 4.5
+      )
+      prob  <- predict(final_model, new_patient, type = "prob")$.pred_yes
+      class <- predict(final_model, new_patient, type = "class")$.pred_class
+      prediction_result(list(is_ckd = as.character(class) == "yes",
+                             prob   = round(prob * 100, 1)))
+    })
+
+    output$prediction_result <- renderUI({
+      res <- prediction_result()
+      if (is.null(res)) {
+        return(div(class = "placeholder",
+          div(class = "p-icon", "🔬"),
+          tags$p("Enter patient parameters and click Run Prediction")))
+      }
+      bar  <- paste0(res$prob, "%")
+      cls  <- if (res$is_ckd) "ckd" else "no-ckd"
+      tag  <- if (res$is_ckd) "⚠  High Risk Detected"   else "✓  Low Risk"
+      verd <- if (res$is_ckd) "Chronic Kidney Disease likely" else "No CKD detected"
+      adv  <- if (res$is_ckd) {
+        tags$ul(class = "advice",
+          tags$li("Immediate referral to a nephrologist recommended"),
+          tags$li("Priority labs: creatinine, BUN, electrolytes, urinalysis"),
+          tags$li("Tighten blood pressure and glycemic control"))
+      } else {
+        tags$ul(class = "advice",
+          tags$li("No immediate concern — continue routine check-ups"),
+          tags$li("Maintain healthy diet, hydration, and regular exercise"),
+          tags$li("Annual kidney function screening advised"))
+      }
+
+      div(class = paste("res-card", cls),
+        p(class = "res-tag",  tag),
+        p(class = "res-verdict", verd),
+        p(class = "res-prob", bar),
+        p(class = "res-prob-label", "Estimated CKD probability"),
+        div(class = "prob-track",
+          div(class = "prob-fill", style = paste0("width:", bar))),
+        tags$hr(class = "divider"),
+        adv
+      )
+    })
+  },
+
+  options = list(height = 1300)
+)
+```

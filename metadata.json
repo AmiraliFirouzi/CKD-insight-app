@@ -1,0 +1,6 @@
+{
+  "name": "CKD Classifier Panel",
+  "description": "Interactive machine learning classification panel comparing Logistic Regression, LDA, and QDA for predicting Chronic Kidney Disease.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
