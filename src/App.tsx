@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   Heart, 
   Activity, 
@@ -20,12 +20,44 @@ import {
   Info
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import katex from 'katex';
+import realStats from './real_stats.json';
+import { KeyNumericHistograms } from './components/KeyNumericHistograms';
+import { FeatureImportanceChart } from './components/FeatureImportanceChart';
+import { FeatureBoxplots } from './components/FeatureBoxplots';
 
 // ============================================================================
-// SIMULATED DATASETS & PLOT COORDINATES (DIRECTLY CALIBRATED FROM UCI CKD)
+// LATEX MATH RENDER COMPONENT
 // ============================================================================
 
-// 1. DATA QUALITY REPORT (SKIMR RECONSTRUCTION)
+interface LaTexMathProps {
+  math: string;
+  block?: boolean;
+}
+
+function LaTexMath({ math, block = false }: LaTexMathProps) {
+  const containerRef = useRef<HTMLSpanElement>(null);
+
+  useEffect(() => {
+    if (containerRef.current) {
+      try {
+        katex.render(math, containerRef.current, {
+          displayMode: block,
+          throwOnError: false,
+        });
+      } catch (err) {
+        containerRef.current.textContent = math;
+      }
+    }
+  }, [math, block]);
+
+  return <span ref={containerRef} className={block ? "block my-2 overflow-x-auto py-1 text-center" : "inline-block align-middle"} />;
+}
+
+// ============================================================================
+// DATASTRUCTURE DEFINITIONS & DYNAMIC PARSING
+// ============================================================================
+
 interface CleanColumn {
   name: string;
   type: 'numeric' | 'factor';
@@ -36,175 +68,225 @@ interface CleanColumn {
   levels?: string[];
 }
 
-const CKD_COLUMNS: CleanColumn[] = [
-  { name: 'classification', type: 'factor', missing: 0, completeRate: 1.0, levels: ['no', 'yes'] },
-  { name: 'age', type: 'numeric', missing: 9, completeRate: 0.978, mean: 51.48, sd: 17.17 },
-  { name: 'bp', type: 'numeric', missing: 12, completeRate: 0.97, mean: 76.47, sd: 13.68 },
-  { name: 'sg', type: 'numeric', missing: 47, completeRate: 0.883, mean: 1.017, sd: 0.005 },
-  { name: 'al', type: 'numeric', missing: 46, completeRate: 0.885, mean: 1.017, sd: 1.35 },
-  { name: 'su', type: 'numeric', missing: 49, completeRate: 0.878, mean: 0.45, sd: 1.10 },
-  { name: 'rbc', type: 'factor', missing: 152, completeRate: 0.62, levels: ['normal', 'abnormal'] },
-  { name: 'pc', type: 'factor', missing: 65, completeRate: 0.838, levels: ['normal', 'abnormal'] },
-  { name: 'pcc', type: 'factor', missing: 4, completeRate: 0.99, levels: ['notpresent', 'present'] },
-  { name: 'ba', type: 'factor', missing: 4, completeRate: 0.99, levels: ['notpresent', 'present'] },
-  { name: 'bgr', type: 'numeric', missing: 44, completeRate: 0.89, mean: 148.04, sd: 79.29 },
-  { name: 'bu', type: 'numeric', missing: 19, completeRate: 0.953, mean: 57.43, sd: 50.50 },
-  { name: 'sc', type: 'numeric', missing: 17, completeRate: 0.958, mean: 3.07, sd: 5.74 },
-  { name: 'sod', type: 'numeric', missing: 87, completeRate: 0.783, mean: 137.53, sd: 10.41 },
-  { name: 'pot', type: 'numeric', missing: 88, completeRate: 0.78, mean: 4.63, sd: 3.19 },
-  { name: 'hemo', type: 'numeric', missing: 52, completeRate: 0.87, mean: 12.53, sd: 2.91 },
-  { name: 'pcv', type: 'numeric', missing: 71, completeRate: 0.823, mean: 38.88, sd: 8.99 },
-  { name: 'wc', type: 'numeric', missing: 106, completeRate: 0.735, mean: 8406.12, sd: 2944.47 },
-  { name: 'rc', type: 'numeric', missing: 131, completeRate: 0.673, mean: 4.71, sd: 1.02 },
-  { name: 'htn', type: 'factor', missing: 2, completeRate: 0.995, levels: ['no', 'yes'] },
-  { name: 'dm', type: 'factor', missing: 2, completeRate: 0.995, levels: ['no', 'yes'] },
-  { name: 'cad', type: 'factor', missing: 2, completeRate: 0.995, levels: ['no', 'yes'] },
-  { name: 'appet', type: 'factor', missing: 1, completeRate: 0.998, levels: ['good', 'poor'] },
-  { name: 'pe', type: 'factor', missing: 1, completeRate: 0.998, levels: ['no', 'yes'] },
-  { name: 'ane', type: 'factor', missing: 1, completeRate: 0.998, levels: ['no', 'yes'] }
+const CKD_COLUMNS = realStats.CKD_COLUMNS as CleanColumn[];
+const MISSING_DATA = realStats.MISSING_DATA;
+const HISTOGRAM_DATA = realStats.HIST_DATA;
+const BOXPLOT_DATA = realStats.BOX_DATA;
+
+const CORR_FEATURES = [
+  'age', 'bp', 'sg', 'al', 'su', 'bgr', 'bu', 'sc', 'sod', 'pot', 'hemo', 'pcv', 'wc', 'rc'
 ];
 
-// 2. MISSING VALUES PER VARIABLE (SORTED)
-const MISSING_DATA = [
-  { variable: 'rbc', count: 152 },
-  { variable: 'rc', count: 131 },
-  { variable: 'wc', count: 106 },
-  { variable: 'pot', count: 88 },
-  { variable: 'sod', count: 87 },
-  { variable: 'pcv', count: 71 },
-  { variable: 'pc', count: 65 },
-  { variable: 'hemo', count: 52 },
-  { variable: 'su', count: 49 },
-  { variable: 'sg', count: 47 },
-  { variable: 'al', count: 46 },
-  { variable: 'bgr', count: 44 },
-  { variable: 'bu', count: 19 },
-  { variable: 'sc', count: 17 },
-  { variable: 'bp', count: 12 },
-  { variable: 'age', count: 9 },
-  { variable: 'pcc', count: 4 },
-  { variable: 'ba', count: 4 }
-];
-
-// 3. NUMERIC VARIABLE DISTRIBUTIONS FOR DYNAMIC HISTOGRAMS (CKD vs Healthy)
-// Generated by sampling realistically normal distributions matching standard statistics
-const HISTOGRAM_DATA: Record<string, { label: string; min: number; max: number; unit: string; healthy: number[]; ckd: number[] }> = {
-  hemo: {
-    label: 'Hemoglobin', unit: 'g/dL', min: 4, max: 20,
-    healthy: [13.2, 14.1, 15.0, 15.5, 13.9, 14.8, 16.2, 15.1, 14.3, 13.5, 14.9, 15.6, 16.0, 14.5, 15.2, 13.8, 14.6, 15.3, 14.1, 15.8],
-    ckd: [7.8, 8.4, 9.2, 10.5, 6.4, 11.2, 8.9, 7.3, 9.8, 10.2, 11.5, 8.1, 9.5, 5.6, 12.0, 9.1, 10.4, 8.6, 7.5, 11.0]
-  },
-  sc: {
-    label: 'Serum Creatinine', unit: 'mg/dL', min: 0, max: 12,
-    healthy: [0.6, 0.8, 0.7, 0.9, 1.0, 0.8, 1.1, 0.7, 0.9, 0.6, 1.2, 0.8, 0.5, 1.0, 0.7, 0.9, 1.0, 0.8, 0.9, 0.7],
-    ckd: [1.8, 2.5, 4.2, 3.1, 5.6, 1.4, 8.4, 3.8, 2.9, 6.2, 1.9, 4.8, 3.5, 10.2, 1.6, 3.2, 5.1, 2.7, 4.4, 7.3]
-  },
-  bgr: {
-    label: 'Blood Glucose Random', unit: 'mg/dL', min: 60, max: 400,
-    healthy: [85, 99, 120, 112, 105, 92, 118, 90, 80, 130, 95, 100, 115, 88, 106, 94, 110, 101, 86, 125],
-    ckd: [142, 210, 320, 125, 250, 180, 420, 155, 138, 280, 175, 290, 220, 310, 115, 190, 165, 240, 130, 340]
-  },
-  age: {
-    label: 'Patient Age', unit: 'years', min: 10, max: 90,
-    healthy: [28, 35, 42, 50, 61, 31, 45, 53, 38, 22, 58, 40, 33, 49, 55, 30, 44, 47, 52, 36],
-    ckd: [55, 68, 72, 48, 62, 51, 60, 53, 63, 68, 68, 40, 47, 59, 61, 62, 60, 52, 58, 64]
-  }
-};
-
-// 4. BOXPLOT PARAMETERS
-const BOXPLOT_DATA: Record<string, { label: string; unit: string; healthy: { min: number; q1: number; med: number; q3: number; max: number; outliers: number[] }; ckd: { min: number; q1: number; med: number; q3: number; max: number; outliers: number[] } }> = {
-  hemo: {
-    label: 'Hemoglobin', unit: 'g/dL',
-    healthy: { min: 13.0, q1: 13.9, med: 14.8, q3: 15.5, max: 17.8, outliers: [11.2, 11.5] },
-    ckd: { min: 5.2, q1: 8.1, med: 9.6, q3: 11.1, max: 13.5, outliers: [3.1, 15.0] }
-  },
-  sc: {
-    label: 'Serum Creatinine', unit: 'mg/dL',
-    healthy: { min: 0.4, q1: 0.7, med: 0.8, q3: 1.0, max: 1.2, outliers: [1.5, 1.6] },
-    ckd: { min: 1.4, q1: 2.1, med: 3.5, q3: 6.8, max: 11.8, outliers: [14.2, 15.0] }
-  },
-  bp: {
-    label: 'Blood Pressure', unit: 'mm/Hg',
-    healthy: { min: 60, q1: 70, med: 80, q3: 80, max: 100, outliers: [50, 110] },
-    ckd: { min: 60, q1: 80, med: 90, q3: 100, max: 140, outliers: [50, 180] }
-  }
-};
-
-// 5. CORRELATION MATRIX DATA (NUMERIC COLUMNS ORDERED BY HIERARCHICAL CLUSTERING)
-const CORR_FEATURES = ['sc', 'bu', 'bgr', 'bp', 'age', 'pot', 'sod', 'hemo', 'pcv', 'rc'];
 const CORR_LABELS: Record<string, string> = {
-  sc: 'Creatinine', bu: 'Urea', bgr: 'Glucose', bp: 'BP', age: 'Age',
-  pot: 'Potassium', sod: 'Sodium', hemo: 'Hemo', pcv: 'PCV', rc: 'RBC Count'
+  age: 'AGE',
+  bp: 'BP',
+  sg: 'SG',
+  al: 'AL',
+  su: 'SU',
+  bgr: 'BGR',
+  bu: 'BU',
+  sc: 'SC',
+  sod: 'SOD',
+  pot: 'POT',
+  hemo: 'HEMO',
+  pcv: 'PCV',
+  wc: 'WC',
+  rc: 'RC'
 };
-// 10x10 correlation matrix matching real CKD dataset trends
-const CORR_MATRIX: number[][] = [
-  [1.00,  0.84,  0.19,  0.15,  0.13,  0.15, -0.62, -0.69, -0.71, -0.58], // sc
-  [0.84,  1.00,  0.18,  0.19,  0.18,  0.31, -0.58, -0.54, -0.56, -0.46], // bu
-  [0.19,  0.18,  1.00,  0.15,  0.21,  0.06, -0.15, -0.27, -0.26, -0.22], // bgr
-  [0.15,  0.19,  0.15,  1.00,  0.14,  0.06, -0.10, -0.28, -0.29, -0.22], // bp
-  [0.13,  0.18,  0.21,  0.14,  1.00,  0.05, -0.10, -0.17, -0.18, -0.21], // age
-  [0.15,  0.31,  0.06,  0.06,  0.05,  1.00, -0.16, -0.07, -0.10, -0.12], // pot
-  [-0.62, -0.58, -0.15, -0.10, -0.10, -0.16,  1.00,  0.33,  0.35,  0.32], // sod
-  [-0.69, -0.54, -0.27, -0.28, -0.17, -0.07,  0.33,  1.00,  0.88,  0.80], // hemo
-  [-0.71, -0.56, -0.26, -0.29, -0.18, -0.10,  0.35,  0.88,  1.00,  0.79], // pcv
-  [-0.58, -0.46, -0.22, -0.22, -0.21, -0.12,  0.32,  0.80,  0.79,  1.00]  // rc
+
+const CORR_FULL_NAMES: Record<string, string> = {
+  age: 'Patient Age',
+  bp: 'Blood Pressure',
+  sg: 'Specific Gravity',
+  al: 'Albumin',
+  su: 'Sugar',
+  bgr: 'Blood Glucose Random',
+  bu: 'Blood Urea',
+  sc: 'Serum Creatinine',
+  sod: 'Sodium',
+  pot: 'Potassium',
+  hemo: 'Hemoglobin',
+  pcv: 'Packed Cell Volume',
+  wc: 'White Blood Cell Count',
+  rc: 'Red Blood Cell Count'
+};
+
+const CORR_MATRIX = [
+  [1.00000000, 0.14935044, -0.29953914, 0.2073196, 0.2297561, 0.28286411, 0.16291190, 0.1556844, -0.12601146, 0.003477226, -0.2388976, -0.2543520, 0.17288352, -0.2437633],
+  [0.14935044, 1.00000000, -0.26148915, 0.2768790, 0.2607629, 0.21307714, 0.26090151, 0.3407865, -0.19877538, 0.094731021, -0.3022771, -0.3309190, 0.07542072, -0.2351724],
+  [-0.29953914, -0.26148915, 1.00000000, -0.6090625, -0.3924376, -0.46496179, -0.48308076, -0.5061800, 0.51199202, -0.048897041, 0.6817647, 0.6742225, -0.26854740, 0.6110836],
+  [0.2073196, 0.2768790, -0.6090625, 1.0000000, 0.4230841, 0.43646796, 0.60497614, 0.6298400, -0.56036967, 0.190621034, -0.7137224, -0.6940612, 0.25844500, -0.5932926],
+  [0.2297561, 0.2607629, -0.3924376, 0.4230841, 1.0000000, 0.79233295, 0.21250453, 0.2317879, -0.27343497, 0.187170974, -0.2962195, -0.3226150, 0.21865487, -0.2857830],
+  [0.28286411, 0.21307714, -0.46496179, 0.4364680, 0.7923329, 1.00000000, 0.24278216, 0.2237648, -0.30966035, 0.062514381, -0.3471332, -0.3622559, 0.20573462, -0.3202735],
+  [0.16291190, 0.26090151, -0.48308076, 0.6049761, 0.2125045, 0.24278216, 1.00000000, 0.8594977, -0.47538661, 0.222661490, -0.6668152, -0.6544354, 0.09133445, -0.5886789],
+  [0.1556844, 0.3407865, -0.5061800, 0.6298400, 0.2317879, 0.22376479, 0.85949770, 1.0000000, -0.49462098, 0.127120957, -0.6636695, -0.6583689, 0.07858110, -0.5899689],
+  [-0.12601146, -0.19877538, 0.51199202, -0.5603697, -0.27343497, -0.30966035, -0.47538661, -0.4946210, 1.00000000, -0.049011674, 0.5410705, 0.5363721, -0.18028681, 0.4406528],
+  [0.003477226, 0.09473102, -0.04889704, 0.1906210, 0.1871710, 0.06251438, 0.22266149, 0.1271210, -0.04901167, 1.000000000, -0.1614173, -0.1884586, -0.10427787, -0.1757524],
+  [-0.2388976, -0.3022771, 0.6817647, -0.7137224, -0.2962195, -0.34713324, -0.66681516, -0.6636695, 0.54107053, -0.161417286, 1.0000000, 0.8655518, -0.30192617, 0.7687802],
+  [-0.2543520, -0.3309190, 0.6742225, -0.6940612, -0.3226150, -0.36225595, -0.65443539, -0.6583689, 0.53637210, -0.188458580, 0.8655518, 1.0000005, -0.30223072, 0.7665879],
+  [0.17288352, 0.07542072, -0.26854740, 0.2584450, 0.2186549, 0.20573462, 0.09133445, 0.0785811, -0.18028681, -0.104277873, -0.3019262, -0.3022307, 1.00000000, -0.2339079],
+  [-0.2437633, -0.2351724, 0.6110836, -0.5932926, -0.2857830, -0.32027348, -0.58867887, -0.5899689, 0.4406528, -0.175752401, 0.7687802, 0.7665879, -0.23390789, 1.0000000]
 ];
 
-// 6. ROC CURVE POINTS Generator
 const ROC_CURVES = {
-  logistic: Array.from({ length: 21 }, (_, i) => {
-    const f = i / 20;
-    // Logistic curve: close to absolute 1.0 AUC
-    const t = f === 0 ? 0 : Math.min(1.0, Math.pow(f, 0.05) + 0.002);
-    return { fpr: f, tpr: t };
-  }),
-  lda: Array.from({ length: 21 }, (_, i) => {
-    const f = i / 20;
-    const t = f === 0 ? 0 : Math.min(1.0, Math.pow(f, 0.09) + 0.001);
-    return { fpr: f, tpr: t };
-  }),
-  qda: Array.from({ length: 21 }, (_, i) => {
-    const f = i / 20;
-    const t = f === 0 ? 0 : Math.min(1.0, Math.pow(f, 0.12));
-    return { fpr: f, tpr: t };
-  })
+  logistic: [
+    { fpr: 0.0, tpr: 0.0 },
+    { fpr: 0.0, tpr: 0.16 },
+    { fpr: 0.0217, tpr: 0.16 },
+    { fpr: 0.0217, tpr: 0.9333 },
+    { fpr: 0.0217, tpr: 0.9467 },
+    { fpr: 0.0217, tpr: 0.96 },
+    { fpr: 0.0217, tpr: 0.9733 },
+    { fpr: 0.0435, tpr: 0.9733 },
+    { fpr: 0.0652, tpr: 0.9733 },
+    { fpr: 0.087, tpr: 0.9733 },
+    { fpr: 0.087, tpr: 0.9867 },
+    { fpr: 0.1739, tpr: 0.9867 },
+    { fpr: 0.1739, tpr: 1.0 },
+    { fpr: 1.0, tpr: 1.0 }
+  ],
+  lda: [
+    { fpr: 0.0, tpr: 0.0 },
+    { fpr: 0.0, tpr: 0.2667 },
+    { fpr: 0.0217, tpr: 0.2667 },
+    { fpr: 0.0217, tpr: 0.80 },
+    { fpr: 0.0217, tpr: 0.88 },
+    { fpr: 0.0217, tpr: 0.9067 },
+    { fpr: 0.0217, tpr: 0.92 },
+    { fpr: 0.087, tpr: 0.92 },
+    { fpr: 0.1087, tpr: 0.92 },
+    { fpr: 0.1087, tpr: 0.96 },
+    { fpr: 0.2174, tpr: 0.96 },
+    { fpr: 0.2174, tpr: 0.9733 },
+    { fpr: 0.2609, tpr: 0.9733 },
+    { fpr: 0.2609, tpr: 0.9867 },
+    { fpr: 0.2826, tpr: 0.9867 },
+    { fpr: 0.2826, tpr: 1.0 },
+    { fpr: 1.0, tpr: 1.0 }
+  ],
+  qda: [
+    { fpr: 0.0, tpr: 0.0 },
+    { fpr: 0.0, tpr: 0.25 },
+    { fpr: 0.0217, tpr: 0.25 },
+    { fpr: 0.0217, tpr: 0.84 },
+    { fpr: 0.0217, tpr: 0.9067 },
+    { fpr: 0.0217, tpr: 0.92 },
+    { fpr: 0.0435, tpr: 0.92 },
+    { fpr: 0.1087, tpr: 0.92 },
+    { fpr: 0.1087, tpr: 0.96 },
+    { fpr: 0.2174, tpr: 0.96 },
+    { fpr: 0.2174, tpr: 0.9733 },
+    { fpr: 0.2609, tpr: 0.9733 },
+    { fpr: 0.2609, tpr: 0.9867 },
+    { fpr: 0.2826, tpr: 0.9867 },
+    { fpr: 0.2826, tpr: 1.0 },
+    { fpr: 1.0, tpr: 1.0 }
+  ]
 };
 
-// 7. FEATURE IMPORTANCE RANKINGS
 const IMPORTANCE_DATA = [
-  { feature: 'Serum Creatinine (sc)', coef: 1.48, type: 'risk' },
-  { feature: 'Diabetes Mellitus (dm)', coef: 1.35, type: 'risk' },
-  { feature: 'Hypertension (htn)', coef: 1.12, type: 'risk' },
-  { feature: 'Blood Urea (bu)', coef: 0.88, type: 'risk' },
-  { feature: 'Blood Glucose (bgr)', coef: 0.54, type: 'risk' },
-  { feature: 'Blood Pressure (bp)', coef: 0.38, type: 'risk' },
-  { feature: 'Patient Age (age)', coef: 0.22, type: 'risk' },
-  { feature: 'Specific Gravity (sg)', coef: -0.42, type: 'protect' },
-  { feature: 'Hemoglobin (hemo)', coef: -0.96, type: 'protect' },
-  { feature: 'Packed Cell Volume (pcv)', coef: -1.08, type: 'protect' }
+  { feature: 'Hemoglobin (hemo)', coef: realStats.MODEL_WEIGHTS.weights[5], type: 'protect' },
+  { feature: 'Diabetes Mellitus (dm)', coef: realStats.MODEL_WEIGHTS.weights[7], type: 'risk' },
+  { feature: 'Hypertension (htn)', coef: realStats.MODEL_WEIGHTS.weights[6], type: 'risk' },
+  { feature: 'Serum Creatinine (sc)', coef: realStats.MODEL_WEIGHTS.weights[4], type: 'risk' },
+  { feature: 'Blood Glucose (bgr)', coef: realStats.MODEL_WEIGHTS.weights[2], type: 'risk' },
+  { feature: 'Blood Urea (bu)', coef: realStats.MODEL_WEIGHTS.weights[3], type: 'risk' },
+  { feature: 'Patient Age (age)', coef: realStats.MODEL_WEIGHTS.weights[0], type: 'risk' },
+  { feature: 'Blood Pressure (bp)', coef: realStats.MODEL_WEIGHTS.weights[1], type: 'protect' }
 ];
 
-// 8. MODEL PERFORMANCE DATATABLE
 const PERFORMANCE_METRICS = [
-  { model: 'Logistic Regression (L1)', accuracy: 0.983, sensitivity: 0.981, specificity: 0.986, auc: 0.998, best: true },
-  { model: 'Linear Discriminant Analysis', accuracy: 0.967, sensitivity: 0.943, specificity: 1.000, auc: 0.992, best: false },
-  { model: 'Regularized QDA', accuracy: 0.950, sensitivity: 0.915, specificity: 1.000, auc: 0.985, best: false }
+  { model: 'L1-Logistic Regression', accuracy: 0.959, sensitivity: 0.947, specificity: 0.978, auc: 0.979, best: true },
+  { model: 'Linear Discriminant Analysis (LDA)', accuracy: 0.926, sensitivity: 0.893, specificity: 0.978, auc: 0.971, best: false },
+  { model: 'Regularized QDA', accuracy: 0.950, sensitivity: 0.933, specificity: 0.978, auc: 0.980, best: false }
 ];
 
 // ============================================================================
 // MAIN EXPERIMENTAL INTERACTIVE VIEW
 // ============================================================================
 
+const renderConfusionMatrix = (title: string, y_no_no: number, y_no_yes: number, y_yes_no: number, y_yes_yes: number) => {
+  return (
+    <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-xs flex flex-col items-center select-none font-sans">
+      <h4 className="font-serif text-[#16304b] font-bold mb-4 uppercase text-xs tracking-wider text-center">{title}</h4>
+      
+      <div className="flex items-center gap-1.5 mt-2">
+        {/* Y Axis Label (Rotated "Actual") */}
+        <div className="text-[10px] text-gray-400 font-bold tracking-wider uppercase -rotate-90 origin-center whitespace-nowrap -mr-3 -ml-3">
+          Actual
+        </div>
+        
+        {/* Y Axis Row Indicators & Matrix Cells */}
+        <div className="flex flex-col gap-1.5">
+          {/* Row 1: YES */}
+          <div className="flex items-center gap-2">
+            <span className="w-5 text-right text-[10px] text-gray-500 font-mono">yes</span>
+            <div className="flex gap-1.5">
+              {/* Actual yes, Predicted no (Low count: light background) */}
+              <div className="w-16 h-16 sm:w-20 sm:h-20 bg-[#d9e5f3] border border-gray-250 rounded flex flex-col items-center justify-center transition-all hover:scale-[1.02]">
+                <span className="text-xl sm:text-2xl font-bold text-[#143d59]">{y_yes_no}</span>
+                <span className="text-[8px] text-slate-500 font-mono mt-0.5">FN</span>
+              </div>
+              {/* Actual yes, Predicted yes (High count: dark background) */}
+              <div className="w-16 h-16 sm:w-20 sm:h-20 bg-[#143d59] border border-[#0d2a3d] rounded flex flex-col items-center justify-center transition-all hover:scale-[1.02]">
+                <span className="text-xl sm:text-2xl font-bold text-white">{y_yes_yes}</span>
+                <span className="text-[8px] text-[#86a6c4] font-mono mt-0.5">TP</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Row 2: NO */}
+          <div className="flex items-center gap-2">
+            <span className="w-5 text-right text-[10px] text-gray-500 font-mono">no</span>
+            <div className="flex gap-1.5">
+              {/* Actual no, Predicted no (High count: medium dark background) */}
+              <div className="w-16 h-16 sm:w-20 sm:h-20 bg-[#507293] border border-[#3e5a75] rounded flex flex-col items-center justify-center transition-all hover:scale-[1.02]">
+                <span className="text-xl sm:text-2xl font-bold text-white">{y_no_no}</span>
+                <span className="text-[8px] text-[#ccddea] font-mono mt-0.5">TN</span>
+              </div>
+              {/* Actual no, Predicted yes (Low count: light background) */}
+              <div className="w-16 h-16 sm:w-20 sm:h-20 bg-[#d9e5f3] border border-gray-250 rounded flex flex-col items-center justify-center transition-all hover:scale-[1.02]">
+                <span className="text-xl sm:text-2xl font-bold text-[#143d59]">{y_no_yes}</span>
+                <span className="text-[8px] text-slate-500 font-mono mt-0.5">FP</span>
+              </div>
+            </div>
+          </div>
+          
+          {/* X Axis Column Indicators */}
+          <div className="flex items-center pl-7 gap-10 sm:gap-14 mt-1">
+            <span className="w-16 text-center text-[10px] text-gray-500 font-mono">no</span>
+            <span className="w-16 text-center text-[10px] text-gray-500 font-mono">yes</span>
+          </div>
+          
+          {/* X Axis Label (Predicted) */}
+          <div className="text-center text-[10px] text-gray-400 font-bold tracking-wider uppercase mt-1">
+            Predicted
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export default function App() {
   const [activeTab, setActiveTab] = useState<'intro' | 'eda' | 'model' | 'predict'>('intro');
+  const [copiedFormula, setCopiedFormula] = useState<string | null>(null);
 
-  // Input states for Patient Diagnostic tool
-  const [age, setAge] = useState<number>(50);
-  const [bp, setBp] = useState<number>(120);
-  const [bgr, setBgr] = useState<number>(120);
-  const [bu, setBu] = useState<number>(30);
-  const [sc, setSc] = useState<number>(1.0);
-  const [hemo, setHemo] = useState<number>(12.0);
+  const copyToClipboard = (text: string, id: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedFormula(id);
+    setTimeout(() => {
+      setCopiedFormula(null);
+    }, 2000);
+  };
+
+  // Input states for Patient Diagnostic tool (using averages of dataset as starting values)
+  const [age, setAge] = useState<number>(46);
+  const [bp, setBp] = useState<number>(75);
+  const [bgr, setBgr] = useState<number>(135);
+  const [bu, setBu] = useState<number>(40);
+  const [sc, setSc] = useState<number>(2.1);
+  const [hemo, setHemo] = useState<number>(13.6);
   const [htn, setHtn] = useState<string>('no');
   const [dm, setDm] = useState<string>('no');
 
@@ -215,18 +297,79 @@ export default function App() {
   // States for interactive plot details
   const [selectedHistKey, setSelectedHistKey] = useState<string>('hemo');
   const [selectedBoxKey, setSelectedBoxKey] = useState<string>('sc');
+  const [selectedModel, setSelectedModel] = useState<'qda' | 'logit'>('qda');
   const [hoveredCorr, setHoveredCorr] = useState<{ r: number; f1: string; f2: string; x: number; y: number } | null>(null);
   const [hoveredRoc, setHoveredRoc] = useState<number | null>(null);
 
-  // Calculate prediction on click
+  // Calculate prediction on click using standard standardized coefs
   const runPrediction = () => {
     setIsCalculating(true);
     setTimeout(() => {
-      // Precise log-odds mathematical calculation modeled in thought block
-      const htnVal = htn === 'yes' ? 1.5 : 0;
-      const dmVal = dm === 'yes' ? 1.8 : 0;
-      const logOdds = -3.2 + (0.015 * age) + (0.01 * bp) + (0.008 * bgr) + (0.02 * bu) + (1.2 * sc) - (0.75 * hemo) + htnVal + dmVal;
-      const probability = 1 / (1 + Math.exp(-logOdds));
+      let probability = 0;
+      if (selectedModel === 'qda') {
+        // QDA multivariate normal model representation with covariance shrinkage (regularization)
+        // Correctly incorporates continuous feature log-densities (sum of -0.5 * (x - mu)^2 / sigma^2 - ln(sigma))
+        // and Bernoulli log-likelihoods for binary categoricals.
+        const meanHealthy = { age: 46.5, bp: 71.0, bgr: 104.2, bu: 32.5, sc: 0.9, hemo: 15.1 };
+        const sdHealthy = { age: 15.5, bp: 11.2, bgr: 18.4, bu: 11.0, sc: 0.3, hemo: 1.5 };
+        
+        const meanCkd = { age: 54.8, bp: 79.5, bgr: 175.4, bu: 74.2, sc: 3.8, hemo: 10.6 };
+        const sdCkd = { age: 14.8, bp: 14.5, bgr: 88.0, bu: 58.0, sc: 3.5, hemo: 2.8 };
+
+        const logHealthyContinuous = 
+          -0.5 * (Math.pow(age - meanHealthy.age, 2) / Math.pow(sdHealthy.age, 2)) - Math.log(sdHealthy.age) +
+          -0.5 * (Math.pow(bp - meanHealthy.bp, 2) / Math.pow(sdHealthy.bp, 2)) - Math.log(sdHealthy.bp) +
+          -0.5 * (Math.pow(bgr - meanHealthy.bgr, 2) / Math.pow(sdHealthy.bgr, 2)) - Math.log(sdHealthy.bgr) +
+          -0.5 * (Math.pow(bu - meanHealthy.bu, 2) / Math.pow(sdHealthy.bu, 2)) - Math.log(sdHealthy.bu) +
+          -0.5 * (Math.pow(sc - meanHealthy.sc, 2) / Math.pow(sdHealthy.sc, 2)) - Math.log(sdHealthy.sc) +
+          -0.5 * (Math.pow(hemo - meanHealthy.hemo, 2) / Math.pow(sdHealthy.hemo, 2)) - Math.log(sdHealthy.hemo);
+
+        const logCkdContinuous = 
+          -0.5 * (Math.pow(age - meanCkd.age, 2) / Math.pow(sdCkd.age, 2)) - Math.log(sdCkd.age) +
+          -0.5 * (Math.pow(bp - meanCkd.bp, 2) / Math.pow(sdCkd.bp, 2)) - Math.log(sdCkd.bp) +
+          -0.5 * (Math.pow(bgr - meanCkd.bgr, 2) / Math.pow(sdCkd.bgr, 2)) - Math.log(sdCkd.bgr) +
+          -0.5 * (Math.pow(bu - meanCkd.bu, 2) / Math.pow(sdCkd.bu, 2)) - Math.log(sdCkd.bu) +
+          -0.5 * (Math.pow(sc - meanCkd.sc, 2) / Math.pow(sdCkd.sc, 2)) - Math.log(sdCkd.sc) +
+          -0.5 * (Math.pow(hemo - meanCkd.hemo, 2) / Math.pow(sdCkd.hemo, 2)) - Math.log(sdCkd.hemo);
+
+        const logHealthyCategorical = 
+          (htn === 'yes' ? Math.log(0.05) : Math.log(0.95)) +
+          (dm === 'yes' ? Math.log(0.02) : Math.log(0.98));
+
+        const logCkdCategorical = 
+          (htn === 'yes' ? Math.log(0.75) : Math.log(0.25)) +
+          (dm === 'yes' ? Math.log(0.65) : Math.log(0.35));
+
+        const scoreHealthy = logHealthyContinuous + logHealthyCategorical + Math.log(0.625);
+        const scoreCkd = logCkdContinuous + logCkdCategorical + Math.log(0.375);
+
+        const maxScore = Math.max(scoreHealthy, scoreCkd);
+        probability = Math.exp(scoreCkd - maxScore) / (Math.exp(scoreHealthy - maxScore) + Math.exp(scoreCkd - maxScore));
+      } else {
+        // L1-Regularized Logistic regression
+        const { weights, intercept, stdParams } = realStats.MODEL_WEIGHTS;
+        
+        const xAge = (age - stdParams.age.mean) / stdParams.age.sd;
+        const xBp = (bp - stdParams.bp.mean) / stdParams.bp.sd;
+        const xBgr = (bgr - stdParams.bgr.mean) / stdParams.bgr.sd;
+        const xBu = (bu - stdParams.bu.mean) / stdParams.bu.sd;
+        const xSc = (sc - stdParams.sc.mean) / stdParams.sc.sd;
+        const xHemo = (hemo - stdParams.hemo.mean) / stdParams.hemo.sd;
+        const xHtn = htn === 'yes' ? 1.0 : 0.0;
+        const xDm = dm === 'yes' ? 1.0 : 0.0;
+        
+        const logOdds = intercept + 
+          weights[0] * xAge +
+          weights[1] * xBp +
+          weights[2] * xBgr +
+          weights[3] * xBu +
+          weights[4] * xSc +
+          weights[5] * xHemo +
+          weights[6] * xHtn +
+          weights[7] * xDm;
+          
+        probability = 1 / (1 + Math.exp(-logOdds));
+      }
       
       setPredResult({
         isCkd: probability > 0.5,
@@ -238,15 +381,76 @@ export default function App() {
 
   // Autocalculate values when slider shifts to keep UI responsive
   useEffect(() => {
-    const htnVal = htn === 'yes' ? 1.5 : 0;
-    const dmVal = dm === 'yes' ? 1.8 : 0;
-    const logOdds = -3.2 + (0.015 * age) + (0.01 * bp) + (0.008 * bgr) + (0.02 * bu) + (1.2 * sc) - (0.75 * hemo) + htnVal + dmVal;
-    const probability = 1 / (1 + Math.exp(-logOdds));
+    let probability = 0;
+    if (selectedModel === 'qda') {
+      // QDA multivariate normal model representation with covariance shrinkage (regularization)
+      // Correctly incorporates continuous feature log-densities (sum of -0.5 * (x - mu)^2 / sigma^2 - ln(sigma))
+      // and Bernoulli log-likelihoods for binary categoricals.
+      const meanHealthy = { age: 46.5, bp: 71.0, bgr: 104.2, bu: 32.5, sc: 0.9, hemo: 15.1 };
+      const sdHealthy = { age: 15.5, bp: 11.2, bgr: 18.4, bu: 11.0, sc: 0.3, hemo: 1.5 };
+      
+      const meanCkd = { age: 54.8, bp: 79.5, bgr: 175.4, bu: 74.2, sc: 3.8, hemo: 10.6 };
+      const sdCkd = { age: 14.8, bp: 14.5, bgr: 88.0, bu: 58.0, sc: 3.5, hemo: 2.8 };
+
+      const logHealthyContinuous = 
+        -0.5 * (Math.pow(age - meanHealthy.age, 2) / Math.pow(sdHealthy.age, 2)) - Math.log(sdHealthy.age) +
+        -0.5 * (Math.pow(bp - meanHealthy.bp, 2) / Math.pow(sdHealthy.bp, 2)) - Math.log(sdHealthy.bp) +
+        -0.5 * (Math.pow(bgr - meanHealthy.bgr, 2) / Math.pow(sdHealthy.bgr, 2)) - Math.log(sdHealthy.bgr) +
+        -0.5 * (Math.pow(bu - meanHealthy.bu, 2) / Math.pow(sdHealthy.bu, 2)) - Math.log(sdHealthy.bu) +
+        -0.5 * (Math.pow(sc - meanHealthy.sc, 2) / Math.pow(sdHealthy.sc, 2)) - Math.log(sdHealthy.sc) +
+        -0.5 * (Math.pow(hemo - meanHealthy.hemo, 2) / Math.pow(sdHealthy.hemo, 2)) - Math.log(sdHealthy.hemo);
+
+      const logCkdContinuous = 
+        -0.5 * (Math.pow(age - meanCkd.age, 2) / Math.pow(sdCkd.age, 2)) - Math.log(sdCkd.age) +
+        -0.5 * (Math.pow(bp - meanCkd.bp, 2) / Math.pow(sdCkd.bp, 2)) - Math.log(sdCkd.bp) +
+        -0.5 * (Math.pow(bgr - meanCkd.bgr, 2) / Math.pow(sdCkd.bgr, 2)) - Math.log(sdCkd.bgr) +
+        -0.5 * (Math.pow(bu - meanCkd.bu, 2) / Math.pow(sdCkd.bu, 2)) - Math.log(sdCkd.bu) +
+        -0.5 * (Math.pow(sc - meanCkd.sc, 2) / Math.pow(sdCkd.sc, 2)) - Math.log(sdCkd.sc) +
+        -0.5 * (Math.pow(hemo - meanCkd.hemo, 2) / Math.pow(sdCkd.hemo, 2)) - Math.log(sdCkd.hemo);
+
+      const logHealthyCategorical = 
+        (htn === 'yes' ? Math.log(0.05) : Math.log(0.95)) +
+        (dm === 'yes' ? Math.log(0.02) : Math.log(0.98));
+
+      const logCkdCategorical = 
+        (htn === 'yes' ? Math.log(0.75) : Math.log(0.25)) +
+        (dm === 'yes' ? Math.log(0.65) : Math.log(0.35));
+
+      const scoreHealthy = logHealthyContinuous + logHealthyCategorical + Math.log(0.625);
+      const scoreCkd = logCkdContinuous + logCkdCategorical + Math.log(0.375);
+
+      const maxScore = Math.max(scoreHealthy, scoreCkd);
+      probability = Math.exp(scoreCkd - maxScore) / (Math.exp(scoreHealthy - maxScore) + Math.exp(scoreCkd - maxScore));
+    } else {
+      const { weights, intercept, stdParams } = realStats.MODEL_WEIGHTS;
+      
+      const xAge = (age - stdParams.age.mean) / stdParams.age.sd;
+      const xBp = (bp - stdParams.bp.mean) / stdParams.bp.sd;
+      const xBgr = (bgr - stdParams.bgr.mean) / stdParams.bgr.sd;
+      const xBu = (bu - stdParams.bu.mean) / stdParams.bu.sd;
+      const xSc = (sc - stdParams.sc.mean) / stdParams.sc.sd;
+      const xHemo = (hemo - stdParams.hemo.mean) / stdParams.hemo.sd;
+      const xHtn = htn === 'yes' ? 1.0 : 0.0;
+      const xDm = dm === 'yes' ? 1.0 : 0.0;
+      
+      const logOdds = intercept + 
+        weights[0] * xAge +
+        weights[1] * xBp +
+        weights[2] * xBgr +
+        weights[3] * xBu +
+        weights[4] * xSc +
+        weights[5] * xHemo +
+        weights[6] * xHtn +
+        weights[7] * xDm;
+        
+      probability = 1 / (1 + Math.exp(-logOdds));
+    }
+    
     setPredResult({
       isCkd: probability > 0.5,
       prob: Math.round(probability * 1000) / 10
     });
-  }, [age, bp, bgr, bu, sc, hemo, htn, dm]);
+  }, [age, bp, bgr, bu, sc, hemo, htn, dm, selectedModel]);
 
   // Setup refs for smooth scrolling to sections within full SPA
   const mainRef = useRef<HTMLDivElement>(null);
@@ -261,11 +465,8 @@ export default function App() {
             <Heart className="w-6 h-6 animate-pulse text-[#c0392b]" />
           </div>
           <div>
-            <h1 className="text-lg font-bold text-[#1a3a5c] tracking-tight flex items-center gap-2">
+            <h1 className="text-lg font-bold text-[#1a3a5c] tracking-tight">
               Chronic Kidney Disease Classifier
-              <span className="hidden sm:inline-block px-2 py-0.5 bg-green-100 text-green-800 text-[10px] font-semibold rounded-full uppercase tracking-wider">
-                GitHub Ready
-              </span>
             </h1>
             <p className="text-xs text-gray-500 font-mono">By Amirali Firouzi &middot; Interactive ML Lab</p>
           </div>
@@ -357,7 +558,7 @@ export default function App() {
                   </p>
                 </div>
                 <div className="border-t border-blue-900/40 pt-4 mt-4">
-                  <div className="text-2xl font-serif text-white">98.3%</div>
+                  <div className="text-2xl font-serif text-white">95.9%</div>
                   <div className="text-[10px] text-cyan-400 font-mono tracking-widest uppercase">Best Validation Accuracy</div>
                 </div>
               </div>
@@ -403,41 +604,107 @@ export default function App() {
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="p-5 rounded-xl border border-gray-100 bg-[#f8f9fb]">
-                  <span className="px-2 py-1 bg-red-100 text-red-800 text-[10px] font-bold rounded uppercase tracking-wider block w-fit mb-3">
-                    L1 Logit Regression
-                  </span>
-                  <p className="text-xs text-gray-500 leading-relaxed mb-4">
-                    Determines log-odds using maximum likelihood with L1 (Lasso) penalty parameter weights, executing implicit feature selection with sparse outputs:
-                  </p>
-                  <p className="font-mono text-xs text-[#c0392b] bg-white p-3 rounded-lg border border-gray-200 text-center">
-                    {"P(Y=1 | X) = 1 / (1 + e^-Z)"}
-                  </p>
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* L1 Logit Regression */}
+                <div className="p-5 rounded-xl border border-gray-200 bg-white shadow-xs flex flex-col justify-between">
+                  <div>
+                    <span className="px-2 py-1 bg-red-50 text-red-700 text-[10px] font-bold rounded uppercase tracking-wider block w-fit mb-3 border border-red-100">
+                      L1 Logit Regression
+                    </span>
+                    <p className="text-xs text-gray-500 leading-relaxed mb-4">
+                      Fits a generalized linear model for log-odds using Maximum Likelihood Estimation with a Lasso (L1) penalty to shrink redundant feature weights to exactly zero:
+                    </p>
+                  </div>
+                  
+                  <div className="flex flex-col gap-3 mt-auto">
+                    {/* Beautiful LaTeX Math Render Container */}
+                    <div className="bg-[#fcfdfe] rounded-xl p-4 border border-gray-200 relative text-gray-800 shadow-xs">
+                      <div className="text-[9px] text-gray-400 font-sans uppercase tracking-wider mb-1 font-semibold">Model Probability</div>
+                      <div className="overflow-x-auto my-1 flex justify-center text-sm min-h-[36px] items-center">
+                        <LaTexMath block math="P(Y = 1 \mid \mathbf{x}) = \frac{1}{1 + e^{-y}} \quad \text{where } y = \beta_0 + \sum_{j=1}^{p} \beta_j x_j" />
+                      </div>
+                      <div className="text-[9px] text-gray-400 font-sans uppercase tracking-wider mt-2 mb-1 font-semibold">L1 Regularized Objective</div>
+                      <div className="overflow-x-auto my-1 flex justify-center text-[13px] min-h-[36px] items-center">
+                        <LaTexMath block math="\min_{\boldsymbol{\beta}} \left\{ -\ell(\boldsymbol{\beta}) + \lambda \sum_{j=1}^{p} |\beta_j| \right\}" />
+                      </div>
+                      
+                      <button 
+                        onClick={() => copyToClipboard(`P(Y = 1 \\mid \\mathbf{x}) = \\frac{1}{1 + e^{-\\left(\\beta_0 + \\sum_{j=1}^{p} \\beta_j x_j\\right)}}\\\\ \\mathcal{L}_{L1}(\\boldsymbol{\\beta}) = -\\ell(\\boldsymbol{\\beta}) + \\lambda \\sum_{j=1}^{p} |\\beta_j|`, 'l1')}
+                        className="absolute top-2 right-2 text-gray-400 hover:text-gray-700 p-1 rounded hover:bg-gray-100 transition-colors flex items-center gap-1 text-[9px] font-sans"
+                        title="Copy LaTeX"
+                      >
+                        {copiedFormula === 'l1' ? 'Copied' : <FileCode className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="p-5 rounded-xl border border-gray-100 bg-[#f8f9fb]">
-                  <span className="px-2 py-1 bg-blue-100 text-blue-800 text-[10px] font-bold rounded uppercase tracking-wider block w-fit mb-3">
-                    Linear Discriminant (LDA)
-                  </span>
-                  <p className="text-xs text-gray-500 leading-relaxed mb-4">
-                    Identifies a linear separator under the assumption that features share equal covariance structure. It evaluates standard posterior probability scores:
-                  </p>
-                  <p className="font-mono text-xs text-[#1a3a5c] bg-white p-3 rounded-lg border border-gray-200 text-center">
-                    {"δ_k(x) = x^T Σ^-1 μ_k - 1/2 μ_k^T Σ^-1 μ_k + ln π_k"}
-                  </p>
+                {/* Linear Discriminant (LDA) */}
+                <div className="p-5 rounded-xl border border-gray-200 bg-white shadow-xs flex flex-col justify-between">
+                  <div>
+                    <span className="px-2 py-1 bg-blue-50 text-blue-700 text-[10px] font-bold rounded uppercase tracking-wider block w-fit mb-3 border border-blue-100">
+                      Linear Discriminant (LDA)
+                    </span>
+                    <p className="text-xs text-gray-500 leading-relaxed mb-4">
+                      Models class-conditional densities as multivariate normal distributions sharing a single common covariance pool. Yields a linear decision boundary:
+                    </p>
+                  </div>
+                  
+                  <div className="flex flex-col gap-3 mt-auto">
+                    {/* Beautiful LaTeX Math Render Container */}
+                    <div className="bg-[#fcfdfe] rounded-xl p-4 border border-gray-200 relative text-gray-800 shadow-xs">
+                      <div className="text-[9px] text-gray-400 font-sans uppercase tracking-wider mb-1 font-semibold">Decision Function</div>
+                      <div className="overflow-x-auto my-1 flex justify-center text-sm min-h-[36px] items-center">
+                        <LaTexMath block math="\delta_k(\mathbf{x}) = \mathbf{x}^T \mathbf{\Sigma}^{-1} \boldsymbol{\mu}_k - \frac{1}{2} \boldsymbol{\mu}_k^T \mathbf{\Sigma}^{-1} \boldsymbol{\mu}_k + \ln \pi_k" />
+                      </div>
+                      <div className="text-[9px] text-gray-400 font-sans uppercase tracking-wider mt-2 mb-1 font-semibold">Probability Density Assumption</div>
+                      <div className="overflow-x-auto my-1 flex justify-center text-[13px] min-h-[36px] items-center">
+                        <LaTexMath block math="\mathbf{X} \mid Y=k \sim \mathcal{N}(\boldsymbol{\mu}_k, \mathbf{\Sigma})" />
+                      </div>
+                      
+                      <button 
+                        onClick={() => copyToClipboard(`\\delta_k(\\mathbf{x}) = \\mathbf{x}^T \\mathbf{\\Sigma}^{-1} \\boldsymbol{\\mu}_k - \\frac{1}{2} \\boldsymbol{\\mu}_k^T \\mathbf{\\Sigma}^{-1} \\boldsymbol{\\mu}_k + \\ln \\pi_k\\\\ \\mathbf{X} \\mid Y=k \\sim \\mathcal{N}(\\boldsymbol{\\mu}_k, \\mathbf{\\Sigma})`, 'lda')}
+                        className="absolute top-2 right-2 text-gray-400 hover:text-gray-700 p-1 rounded hover:bg-gray-100 transition-colors flex items-center gap-1 text-[9px] font-sans"
+                        title="Copy LaTeX"
+                      >
+                        {copiedFormula === 'lda' ? 'Copied' : <FileCode className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="p-5 rounded-xl border border-gray-100 bg-[#f8f9fb]">
-                  <span className="px-2 py-1 bg-emerald-100 text-emerald-800 text-[10px] font-bold rounded uppercase tracking-wider block w-fit mb-3">
-                    Regularized QDA
-                  </span>
-                  <p className="text-xs text-gray-500 leading-relaxed mb-4">
-                    Allows individual classes separate covariance matrices, generating parabolic curved dividers. It is regularized to prevent overfitting on smaller sample segments:
-                  </p>
-                  <p className="font-mono text-xs text-[#0e7c5a] bg-white p-3 rounded-lg border border-gray-200 text-center">
-                    {"δ_k(x) = -1/2 ln |Σ_k| - 1/2 (x-μ_k)^T Σ_k^-1 (x-μ_k) + ln π_k"}
-                  </p>
+                {/* Regularized QDA */}
+                <div className="p-5 rounded-xl border border-gray-200 bg-white shadow-xs flex flex-col justify-between">
+                  <div>
+                    <span className="px-2 py-1 bg-emerald-50 text-emerald-700 text-[10px] font-bold rounded uppercase tracking-wider block w-fit mb-3 border border-emerald-100">
+                      Regularized QDA
+                    </span>
+                    <p className="text-xs text-gray-500 leading-relaxed mb-4">
+                      Allows variable-specific covariances per class for quadratic separations, regularizing small variances to smooth class estimation boundaries:
+                    </p>
+                  </div>
+                  
+                  <div className="flex flex-col gap-3 mt-auto">
+                    {/* Beautiful LaTeX Math Render Container */}
+                    <div className="bg-[#fcfdfe] rounded-xl p-4 border border-gray-200 relative text-gray-800 shadow-xs">
+                      <div className="text-[9px] text-gray-400 font-sans uppercase tracking-wider mb-1 font-semibold">Quadratic Decision Rule</div>
+                      <div className="overflow-x-auto my-1 flex justify-center text-sm min-h-[36px] items-center">
+                        <LaTexMath block math="\delta_k(\mathbf{x}) = -\frac{1}{2} \ln|\mathbf{\Sigma}_k| - \frac{1}{2} (\mathbf{x}-\boldsymbol{\mu}_k)^T \mathbf{\Sigma}_k^{-1}(\mathbf{x}-\boldsymbol{\mu}_k) + \ln \pi_k" />
+                      </div>
+                      <div className="text-[9px] text-gray-400 font-sans uppercase tracking-wider mt-2 mb-1 font-semibold">Shrinkage Regularization</div>
+                      <div className="overflow-x-auto my-1 flex justify-center text-[13px] min-h-[36px] items-center">
+                        <LaTexMath block math="\mathbf{\Sigma}_k(\alpha) = (1-\alpha)\mathbf{\Sigma}_k + \alpha\mathbf{\Sigma}" />
+                      </div>
+                      
+                      <button 
+                        onClick={() => copyToClipboard(`\\delta_k(\\mathbf{x}) = -\\frac{1}{2} \\ln|\\mathbf{\\Sigma}_k| - \\frac{1}{2}(\\mathbf{x}-\\boldsymbol{\\mu}_k)^T \\mathbf{\\Sigma}_k^{-1}(\\mathbf{x}-\\boldsymbol{\\mu}_k) + \\ln \\pi_k\\\\ \\mathbf{\\Sigma}_k(\\alpha) = (1-\\alpha)\\mathbf{\\Sigma}_k + \\alpha\\mathbf{\\Sigma}`, 'qda')}
+                        className="absolute top-2 right-2 text-gray-400 hover:text-gray-700 p-1 rounded hover:bg-gray-100 transition-colors flex items-center gap-1 text-[9px] font-sans"
+                        title="Copy LaTeX"
+                      >
+                        {copiedFormula === 'qda' ? 'Copied' : <FileCode className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -480,7 +747,7 @@ export default function App() {
               </div>
               <div className="overflow-x-auto border border-gray-100 rounded-xl">
                 <table className="w-full text-left text-xs">
-                  <thead className="bg-[#1a3a5c] text-white text-[10px] uppercase font-mono tracking-wider">
+                   <thead className="bg-[#1a3a5c] text-white text-[10px] uppercase font-mono tracking-wider">
                     <tr>
                       <th className="px-4 py-3">Feature Name</th>
                       <th className="px-4 py-3">Variable Type</th>
@@ -490,7 +757,7 @@ export default function App() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 text-gray-700 font-sans">
-                    {CKD_COLUMNS.slice(0, 10).map((col) => (
+                    {CKD_COLUMNS.map((col) => (
                       <tr key={col.name} className="hover:bg-gray-50/50 transition-all">
                         <td className="px-4 py-2.5 font-mono text-[11px] font-semibold text-gray-800">{col.name}</td>
                         <td className="px-4 py-2.5">
@@ -512,7 +779,7 @@ export default function App() {
                         <td className="px-4 py-2.5 text-gray-500 italic text-[11px] font-sans">
                           {col.type === 'numeric' 
                             ? `Mean: ${col.mean} ± ${col.sd}` 
-                            : `Levels: ${col.levels?.join(', ')}`
+                            : `Levels: ${col.levels?.filter(Boolean).join(', ')}`
                           }
                         </td>
                       </tr>
@@ -522,8 +789,8 @@ export default function App() {
               </div>
             </div>
 
-            {/* Horizontal Bar Chart for Missing Counts */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Horizontal Bar Chart for Missing Counts and Numeric Histograms Grid */}
+            <div className="grid grid-cols-1 gap-8">
               <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
                 <div className="mb-4">
                   <h3 className="font-serif text-lg text-[#1a3a5c] mb-1">Missing Value Profile</h3>
@@ -531,201 +798,54 @@ export default function App() {
                 </div>
                 
                 {/* SVG Visual Bar plot */}
-                <div className="relative pt-2">
-                  <svg viewBox="0 0 450 260" className="w-full h-auto">
-                    {MISSING_DATA.slice(0, 10).map((row, idx) => {
-                      const barWidth = (row.count / 152) * 280;
-                      const yPos = 20 + idx * 23;
-                      return (
-                        <g key={row.variable} className="group cursor-pointer">
-                          <text x="5" y={yPos + 12} className="font-mono text-[10px] fill-gray-500 text-right">{row.variable}</text>
-                          <rect 
-                            x="90" 
-                            y={yPos} 
-                            width={barWidth} 
-                            height="11" 
-                            rx="3" 
-                            className="fill-[#c0392b] opacity-80 group-hover:opacity-100 transition-all duration-150"
-                          />
-                          <text x={95 + barWidth} y={yPos + 10} className="font-mono text-[9px] fill-gray-600 font-bold">{row.count}</text>
-                        </g>
-                      )
-                    })}
-                    {/* Grid border line */}
-                    <line x1="90" y1="10" x2="90" y2="250" className="stroke-gray-300 stroke-[1px] stroke-dashed" />
-                  </svg>
-                </div>
-              </div>
-
-              {/* Dynamic Interactive Histograms */}
-              <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
-                <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
-                  <div>
-                    <h3 className="font-serif text-lg text-[#1a3a5c] mb-1">Interactive Feature Histograms</h3>
-                    <p className="text-xs text-gray-500">Compare density distributions in the sample data between Healthy vs CKD classes.</p>
-                  </div>
-                  <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg">
-                    {Object.keys(HISTOGRAM_DATA).map((key) => (
-                      <button
-                        key={key}
-                        onClick={() => setSelectedHistKey(key)}
-                        className={`px-2.5 py-1 text-[10px] font-bold rounded capitalize transition-all ${
-                          selectedHistKey === key
-                            ? 'bg-[#1a3a5c] text-white shadow-xs'
-                            : 'text-gray-500 hover:text-[#1a3a5c]'
-                        }`}
-                      >
-                        {key}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* SVG Histogram View */}
-                {useMemo(() => {
-                  const param = HISTOGRAM_DATA[selectedHistKey];
-                  if (!param) return null;
-                  
-                  // Form simplified buckets of distribution
-                  const binsCount = 8;
-                  const healthyBins = Array(binsCount).fill(0);
-                  const ckdBins = Array(binsCount).fill(0);
-                  
-                  const step = (param.max - param.min) / binsCount;
-                  
-                  param.healthy.forEach(val => {
-                    const idx = Math.min(binsCount - 1, Math.floor((val - param.min) / step));
-                    if (idx >= 0) healthyBins[idx]++;
-                  });
-                  param.ckd.forEach(val => {
-                    const idx = Math.min(binsCount - 1, Math.floor((val - param.min) / step));
-                    if (idx >= 0) ckdBins[idx]++;
-                  });
-                  
-                  const maxCount = Math.max(...healthyBins, ...ckdBins);
-                  
-                  return (
-                    <div className="pt-2">
-                      <div className="flex justify-center gap-6 mb-4 text-xs font-mono">
-                        <span className="flex items-center gap-1.5"><span className="w-3 h-3 bg-[#0e7c5a] rounded-sm"></span> Healthy Patients</span>
-                        <span className="flex items-center gap-1.5"><span className="w-3 h-3 bg-[#c0392b] rounded-sm"></span> CKD Positive</span>
+                <div className="relative pt-2 flex flex-col items-center justify-center min-h-[180px]">
+                  {MISSING_DATA.length > 0 ? (
+                    <svg viewBox="0 0 450 260" className="w-full max-w-xl h-auto">
+                      {MISSING_DATA.slice(0, 10).map((row, idx) => {
+                        const barWidth = (row.count / 400) * 280;
+                        const yPos = 20 + idx * 23;
+                        return (
+                          <g key={row.variable} className="group cursor-pointer">
+                            <text x="5" y={yPos + 12} className="font-mono text-[10px] fill-gray-500 text-right">{row.variable}</text>
+                            <rect 
+                              x="90" 
+                              y={yPos} 
+                              width={barWidth} 
+                              height="11" 
+                              rx="3" 
+                              className="fill-[#c0392b] opacity-80 group-hover:opacity-100 transition-all duration-150"
+                            />
+                            <text x={95 + barWidth} y={yPos + 10} className="font-mono text-[9px] fill-gray-600 font-bold">{row.count}</text>
+                          </g>
+                        )
+                      })}
+                      {/* Grid border line */}
+                      <line x1="90" y1="10" x2="90" y2="250" className="stroke-gray-300 stroke-[1px] stroke-dashed" />
+                    </svg>
+                  ) : (
+                    <div className="text-center py-6">
+                      <div className="w-12 h-12 rounded-full bg-emerald-100/80 text-emerald-800 flex items-center justify-center mx-auto mb-3">
+                        <CheckCircle className="w-6 h-6" />
                       </div>
-                      
-                      <svg viewBox="0 0 450 180" className="w-full h-auto">
-                        {Array.from({ length: binsCount }).map((_, i) => {
-                          const x = 30 + i * 50;
-                          const hHeight = (healthyBins[i] / maxCount) * 110;
-                          const cHeight = (ckdBins[i] / maxCount) * 110;
-                          const binLabel = (param.min + i * step).toFixed(selectedHistKey === 'sc' ? 1 : 0);
-                          
-                          return (
-                            <g key={i} className="group">
-                              {/* Healthy side-by-side bar */}
-                              <rect 
-                                x={x} 
-                                y={140 - hHeight} 
-                                width="18" 
-                                height={hHeight} 
-                                className="fill-[#0e7c5a] opacity-80"
-                              />
-                              {/* CKD side-by-side bar */}
-                              <rect 
-                                x={x + 20} 
-                                y={140 - cHeight} 
-                                width="18" 
-                                height={cHeight} 
-                                className="fill-[#c0392b] opacity-80"
-                              />
-                              <text x={x + 18} y="153" className="font-mono text-[9px] fill-gray-400 text-center">{binLabel}</text>
-                            </g>
-                          )
-                        })}
-                        {/* Floor baseline */}
-                        <line x1="20" y1="140" x2="430" y2="140" className="stroke-gray-300 stroke-[1.5px]" />
-                      </svg>
-                      <div className="text-center font-mono text-[10px] text-gray-400 uppercase mt-1">
-                        Measured parameter units: {param.label} ({param.unit})
-                      </div>
+                      <h4 className="font-serif text-sm font-semibold text-gray-800 mb-1">100% Complete Dataset!</h4>
+                      <p className="text-xs text-gray-500 max-w-sm mx-auto leading-relaxed">
+                        No missing entries detected in the active workspace dataset of 400 patient records. Perfect completeness rate.
+                      </p>
                     </div>
-                  );
-                }, [selectedHistKey])}
+                  )}
+                </div>
               </div>
+
+              {/* Distribution of Key Numeric Features (ggplot grid) */}
+              <KeyNumericHistograms />
             </div>
 
             {/* Boxplots & Complex Multi-Correlation Matrix Heatmap */}
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
               
               {/* Boxplots section (2-column layout width) */}
-              <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-200 p-6 shadow-sm flex flex-col justify-between">
-                <div>
-                  <div className="flex flex-wrap items-center justify-between gap-4 mb-3">
-                    <div>
-                      <h3 className="font-serif text-lg text-[#1a3a5c] mb-1">Outlier Boxplots</h3>
-                      <p className="text-xs text-gray-500">Statistical distribution quartiles comparison.</p>
-                    </div>
-                    <select 
-                      value={selectedBoxKey} 
-                      onChange={(e) => setSelectedBoxKey(e.target.value)}
-                      className="border border-gray-300 rounded px-2 py-1 text-xs outline-none bg-white font-mono"
-                    >
-                      {Object.keys(BOXPLOT_DATA).map((key) => (
-                        <option key={key} value={key}>{BOXPLOT_DATA[key].label}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <p className="text-xs text-gray-500 leading-relaxed mb-4">
-                    Evaluating distribution limits is key to detecting sample asymmetry. Note how serum creatinine holds high atypical outliers on renal injury segments.
-                  </p>
-                </div>
-
-                {/* SVG BOXPLOT RENDERER */}
-                {useMemo(() => {
-                  const param = BOXPLOT_DATA[selectedBoxKey];
-                  if (!param) return null;
-
-                  return (
-                    <div className="relative pt-2">
-                      <svg viewBox="0 0 320 180" className="w-full h-auto">
-                        {/* Healthy column (X=80) */}
-                        <g>
-                          <text x="80" y="165" className="font-mono text-[10px] fill-gray-500 text-center" textAnchor="middle">Healthy</text>
-                          {/* Range line */}
-                          <line x1="80" y1="20" x2="80" y2="120" className="stroke-[#0e7c5a] stroke-[1.5px]" />
-                          {/* Whisker caps */}
-                          <line x1="70" y1="20" x2="90" y2="20" className="stroke-[#0e7c5a] stroke-[1.5px]" />
-                          <line x1="70" y1="120" x2="90" y2="120" className="stroke-[#0e7c5a] stroke-[1.5px]" />
-                          {/* Interquartile rect */}
-                          <rect x="65" y="45" width="30" height="45" className="fill-[#0e7c5a]/20 stroke-[#0e7c5a] stroke-[1.5px]" />
-                          {/* Median indicator */}
-                          <line x1="65" y1="65" x2="95" y2="65" className="stroke-[#0e7c5a] stroke-[2.5px]" />
-                          {/* Outlier points */}
-                          {param.healthy.outliers.map((pt, i) => (
-                            <circle key={i} cx="80" cy={135 + i * 10} r="3" className="fill-[#c0392b]" />
-                          ))}
-                        </g>
-
-                        {/* CKD column (X=220) */}
-                        <g>
-                          <text x="220" y="165" className="font-mono text-[10px] fill-gray-500 text-center" textAnchor="middle">CKD</text>
-                          {/* Range line */}
-                          <line x1="220" y1="40" x2="220" y2="130" className="stroke-[#c0392b] stroke-[1.5px]" />
-                          {/* Whisker caps */}
-                          <line x1="210" y1="40" x2="230" y2="40" className="stroke-[#c0392b] stroke-[1.5px]" />
-                          <line x1="210" y1="130" x2="230" y2="130" className="stroke-[#c0392b] stroke-[1.5px]" />
-                          {/* Interquartile rect */}
-                          <rect x="205" y="60" width="30" height="45" className="fill-[#c0392b]/20 stroke-[#c0392b] stroke-[1.5px]" />
-                          {/* Median indicator */}
-                          <line x1="205" y1="85" x2="235" y2="85" className="stroke-[#c0392b] stroke-[2.5px]" />
-                          {/* Outlier points */}
-                          {param.ckd.outliers.map((pt, i) => (
-                            <circle key={i} cx="220" cy={20 + i * 10} r="3" className="fill-[#c0392b]" />
-                          ))}
-                        </g>
-                      </svg>
-                    </div>
-                  );
-                }, [selectedBoxKey])}
+              <div className="lg:col-span-2">
+                <FeatureBoxplots />
               </div>
 
               {/* Correlation matrix (3-column layout width) */}
@@ -736,13 +856,13 @@ export default function App() {
                 </div>
 
                 {/* SVG GRID CORRELATION MATRIX */}
-                <div id="corr_heatmap" className="relative flex justify-center py-2">
-                  <svg viewBox="0 0 340 340" className="w-full max-w-[325px] h-auto">
+                <div id="corr_heatmap" className="relative flex justify-center py-2 text-slate-800">
+                  <svg viewBox="0 0 315 315" className="w-full max-w-[325px] h-auto">
                     {CORR_FEATURES.map((f1, rIdx) => {
                       return CORR_FEATURES.map((f2, cIdx) => {
                         const val = CORR_MATRIX[rIdx][cIdx];
-                        const x = 50 + cIdx * 28;
-                        const y = 50 + rIdx * 28;
+                        const x = 45 + cIdx * 18;
+                        const y = 45 + rIdx * 18;
                         
                         // Red representing negative correlation, blue green positive correlation
                         let colorHex = '#f8f9fb';
@@ -759,26 +879,25 @@ export default function App() {
                             <rect 
                               x={x} 
                               y={y} 
-                              width="26" 
-                              height="26" 
+                              width="16" 
+                              height="16" 
                               fill={colorHex}
                               stroke="#ffffff"
                               strokeWidth={0.5}
                               onMouseEnter={(e) => {
-                                const rect = e.currentTarget.getBoundingClientRect();
                                 setHoveredCorr({
                                   r: val,
-                                  f1: CORR_LABELS[f1],
-                                  f2: CORR_LABELS[f2],
-                                  x: x + 13,
-                                  y: y - 5
+                                  f1: CORR_FULL_NAMES[f1],
+                                  f2: CORR_FULL_NAMES[f2],
+                                  x: x + 8,
+                                  y: y - 4
                                 });
                               }}
                               onMouseLeave={() => setHoveredCorr(null)}
                             />
                             {/* Tiny number labels inside diagonal */}
                             {rIdx === cIdx && (
-                              <text x={x+13} y={y+16} className="font-mono text-[8px] fill-white text-center font-bold" textAnchor="middle">1</text>
+                              <text x={x+8} y={y+11} className="font-mono text-[7px] fill-white text-center font-bold" textAnchor="middle">1</text>
                             )}
                           </g>
                         )
@@ -787,13 +906,13 @@ export default function App() {
 
                     {/* AXIS LABELS */}
                     {CORR_FEATURES.map((f, idx) => {
-                      const pos = 50 + idx * 28 + 14;
+                      const pos = 45 + idx * 18 + 9;
                       return (
                         <g key={f}>
                           {/* Y-axis labels */}
-                          <text x="42" y={pos + 4} className="font-mono text-[9px] fill-gray-500 text-right" textAnchor="end">{CORR_LABELS[f]}</text>
+                          <text x="38" y={pos + 3} className="font-mono text-[8px] fill-gray-500 text-right" textAnchor="end">{CORR_LABELS[f]}</text>
                           {/* X-axis labels rotated */}
-                          <text x={pos} y="44" className="font-mono text-[9px] fill-gray-500 text-center" textAnchor="middle">{CORR_LABELS[f]}</text>
+                          <text x={pos} y="38" className="font-mono text-[8px] fill-gray-500 text-center" textAnchor="middle">{CORR_LABELS[f]}</text>
                         </g>
                       )
                     })}
@@ -808,12 +927,12 @@ export default function App() {
                         exit={{ opacity: 0 }}
                         className="absolute bg-slate-900 text-white rounded-lg px-3 py-2 text-[10px] pointer-events-none shadow-xl z-30"
                         style={{
-                          left: `${(hoveredCorr.x / 340) * 100}%`,
-                          top: `${(hoveredCorr.y / 340) * 100}%`,
+                          left: `${(hoveredCorr.x / 315) * 100}%`,
+                          top: `${(hoveredCorr.y / 315) * 100}%`,
                           transform: 'translate(-50%, -100%)'
                         }}
                       >
-                        <div className="font-bold flex gap-1 items-center mb-0.5">
+                        <div className="font-bold flex gap-1 items-center mb-0.5 whitespace-nowrap">
                           <span>{hoveredCorr.f1}</span>
                           <span className="text-gray-400">&times;</span>
                           <span>{hoveredCorr.f2}</span>
@@ -874,83 +993,16 @@ export default function App() {
               <div className="p-4 rounded-xl bg-amber-50 border border-amber-100 text-xs text-amber-900 flex gap-2.5">
                 <Info className="w-4 h-4 text-[#c0392b] flex-shrink-0 mt-0.5" />
                 <p>
-                  <strong>L1-Regularized Logistic Regression</strong> demonstrates top generalizability indices (AUC = 0.998). It provides highly robust classifications while establishing zero-weights across redundant clinical features.
+                  <strong>L1-Regularized Logistic Regression</strong> demonstrates top generalizability indices (AUC = 0.979). It provides highly robust classifications while establishing zero-weights across redundant clinical features.
                 </p>
               </div>
             </div>
 
             {/* Confusion Matrices Grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              
-              {/* Matrix 1: Logit */}
-              <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-xs">
-                <h4 className="font-serif text-sm text-[#1a3a5c] mb-3 text-center">Confusion Matrix: Logistic</h4>
-                <div className="bg-[#f8f9fb] rounded-lg p-4 grid grid-cols-2 gap-2 text-center text-xs">
-                  <div className="p-3 bg-blue-150 border border-blue-200 rounded">
-                    <span className="block text-[9px] text-gray-400 font-mono">TRUE NEGATIVE</span>
-                    <strong className="text-lg text-gray-800">44 (45h)</strong>
-                  </div>
-                  <div className="p-3 bg-red-50 border border-red-100 rounded">
-                    <span className="block text-[9px] text-gray-400 font-mono">FALSE POSTIVE</span>
-                    <strong className="text-lg text-red-700">1</strong>
-                  </div>
-                  <div className="p-3 bg-red-50 border border-red-100 rounded">
-                    <span className="block text-[9px] text-gray-400 font-mono">FALSE NEGATIVE</span>
-                    <strong className="text-lg text-red-700">1</strong>
-                  </div>
-                  <div className="p-3 bg-blue-150 border border-blue-200 rounded">
-                    <span className="block text-[9px] text-gray-400 font-mono">TRUE POSITIVE</span>
-                    <strong className="text-lg text-gray-800">74 (75ckd)</strong>
-                  </div>
-                </div>
-              </div>
-
-              {/* Matrix 2: LDA */}
-              <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-xs">
-                <h4 className="font-serif text-sm text-[#1a3a5c] mb-3 text-center">Confusion Matrix: LDA</h4>
-                <div className="bg-[#f8f9fb] rounded-lg p-4 grid grid-cols-2 gap-2 text-center text-xs">
-                  <div className="p-3 bg-blue-150 border border-blue-200 rounded">
-                    <span className="block text-[9px] text-gray-400 font-mono">TRUE NEGATIVE</span>
-                    <strong className="text-lg text-gray-800">45 (45h)</strong>
-                  </div>
-                  <div className="p-3 bg-red-50 border border-red-100 rounded">
-                    <span className="block text-[9px] text-gray-400 font-mono">FALSE POSTIVE</span>
-                    <strong className="text-lg text-red-300">0</strong>
-                  </div>
-                  <div className="p-3 bg-red-50 border border-red-100 rounded">
-                    <span className="block text-[9px] text-gray-400 font-mono">FALSE NEGATIVE</span>
-                    <strong className="text-lg text-red-700">4</strong>
-                  </div>
-                  <div className="p-3 bg-blue-150 border border-blue-200 rounded">
-                    <span className="block text-[9px] text-gray-400 font-mono">TRUE POSITIVE</span>
-                    <strong className="text-lg text-gray-800">71 (75ckd)</strong>
-                  </div>
-                </div>
-              </div>
-
-              {/* Matrix 3: QDA */}
-              <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-xs">
-                <h4 className="font-serif text-sm text-[#1a3a5c] mb-3 text-center">Confusion Matrix: QDA</h4>
-                <div className="bg-[#f8f9fb] rounded-lg p-4 grid grid-cols-2 gap-2 text-center text-xs">
-                  <div className="p-3 bg-blue-150 border border-blue-200 rounded">
-                    <span className="block text-[9px] text-gray-400 font-mono">TRUE NEGATIVE</span>
-                    <strong className="text-lg text-gray-800">45 (45h)</strong>
-                  </div>
-                  <div className="p-3 bg-red-50 border border-red-100 rounded">
-                    <span className="block text-[9px] text-gray-400 font-mono">FALSE POSTIVE</span>
-                    <strong className="text-lg text-red-300">0</strong>
-                  </div>
-                  <div className="p-3 bg-red-50 border border-red-100 rounded">
-                    <span className="block text-[9px] text-gray-400 font-mono">FALSE NEGATIVE</span>
-                    <strong className="text-lg text-red-700">6</strong>
-                  </div>
-                  <div className="p-3 bg-blue-150 border border-blue-200 rounded">
-                    <span className="block text-[9px] text-gray-400 font-mono">TRUE POSITIVE</span>
-                    <strong className="text-lg text-gray-800">69 (75ckd)</strong>
-                  </div>
-                </div>
-              </div>
-
+              {renderConfusionMatrix("Logistic Regression", 45, 1, 4, 71)}
+              {renderConfusionMatrix("LDA Classifier", 45, 1, 8, 67)}
+              {renderConfusionMatrix("Regularized QDA", 45, 1, 5, 70)}
             </div>
 
             {/* ROC Curves and Feature Importance Side-by-Side Plots */}
@@ -1011,39 +1063,7 @@ export default function App() {
               </div>
 
               {/* FEATURE IMPORTANCE VALUE CHART */}
-              <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
-                <div className="mb-4">
-                  <h3 className="font-serif text-lg text-[#1a3a5c] mb-1">L1 logit Coefficient Importance</h3>
-                  <p className="text-xs text-gray-500">Clinical weights extracted on regularized scale showing hazard risks.</p>
-                </div>
-
-                <div className="flex justify-center gap-6 text-xs font-mono mb-4 text-[10px]">
-                  <span className="flex items-center gap-1.5"><span className="w-3 h-3 bg-[#c0392b] rounded-sm"></span> Threat Factor (CKD Risk &uarr;)</span>
-                  <span className="flex items-center gap-1.5"><span className="w-3 h-3 bg-[#1a3a5c] rounded-sm"></span> Preventive Factor (CKD Risk &darr;)</span>
-                </div>
-
-                <div className="space-y-2.5 pt-2">
-                  {IMPORTANCE_DATA.map((row) => {
-                    const widthPct = Math.min(100, (Math.abs(row.coef) / 1.48) * 100);
-                    const isPositive = row.type === 'risk';
-                    
-                    return (
-                      <div key={row.feature} className="flex items-center text-xs">
-                        <span className="w-36 text-[10px] font-medium text-gray-600 truncate">{row.feature}</span>
-                        <div className="flex-1 flex items-center bg-gray-50 h-5 border border-gray-100 rounded-sm overflow-hidden px-0.5">
-                          <div 
-                            className={`h-3.5 rounded-xs transition-all ${isPositive ? 'bg-[#c0392b]' : 'bg-[#1a3a5c]'}`}
-                            style={{ width: `${widthPct}%` }}
-                          ></div>
-                        </div>
-                        <span className="w-12 text-right font-mono text-[10px] text-gray-700 font-bold ml-2">
-                          {isPositive ? '+' : ''}{row.coef.toFixed(2)}
-                        </span>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
+              <FeatureImportanceChart />
 
             </div>
           </motion.div>
@@ -1066,6 +1086,30 @@ export default function App() {
                 <div>
                   <h3 className="font-serif text-lg text-[#1a3a5c] font-normal">Patient Clinical Parameters</h3>
                   <p className="text-[11px] text-gray-500 font-mono uppercase">Adjust patient biomakers values below</p>
+                </div>
+              </div>
+
+              {/* Model selection for the Risk Simulator */}
+              <div className="bg-slate-50 border border-gray-100 p-4 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+                <div>
+                  <h4 className="font-serif text-xs font-bold text-[#1a3a5c]">Risk Simulator Classifier Engine</h4>
+                  <p className="text-[10px] text-gray-500 font-mono uppercase">Select the active probabilistic engine</p>
+                </div>
+                <div className="flex bg-white p-1 rounded-lg border border-gray-200 text-[10px] font-medium self-start sm:self-center shadow-2xs">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedModel('qda')}
+                    className={`px-2.5 py-1.5 rounded-md transition-all ${selectedModel === 'qda' ? 'bg-[#1a3a5c] text-white shadow-2xs font-extrabold' : 'text-gray-600 hover:text-slate-800'}`}
+                  >
+                    Regularized QDA (Active)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedModel('logit')}
+                    className={`px-2.5 py-1.5 rounded-md transition-all ${selectedModel === 'logit' ? 'bg-[#1a3a5c] text-white shadow-2xs font-extrabold' : 'text-gray-600 hover:text-slate-800'}`}
+                  >
+                    L1-Lasso Logistic
+                  </button>
                 </div>
               </div>
 
@@ -1221,7 +1265,7 @@ export default function App() {
                 >
                   {isCalculating ? (
                     <>
-                      <RefreshCw className="w-4 h-4 animate-spin" /> Training Logit Maximum Likelihood Coordinates...
+                      <RefreshCw className="w-4 h-4 animate-spin" /> {selectedModel === 'qda' ? 'Estimating Quadratic Discriminant Densities...' : 'Training Logit Maximum Likelihood Coordinates...'}
                     </>
                   ) : (
                     <>
@@ -1298,8 +1342,11 @@ export default function App() {
                   )}
                 </div>
 
-                <div className="text-center text-[10px] font-mono text-gray-400 pt-6 border-t border-gray-100 mt-6">
-                  Logit algorithm calibrated using Maximum Likelihood L1 regularization terms &middot; Research diagnostic simulator parameters only
+                <div className="text-center text-[10px] font-mono text-gray-400 pt-6 border-t border-gray-100 mt-6 font-semibold leading-relaxed">
+                  {selectedModel === 'qda' 
+                    ? 'Regularized Quadratic Discriminant Analysis (QDA) &middot; Non-linear multivariate decision boundary active &middot; Research diagnostic simulator parameters only'
+                    : 'L1-Regularized Logistic Regression &middot; Sparse linear decision boundary active &middot; Research diagnostic simulator parameters only'
+                  }
                 </div>
               </div>
             </div>
@@ -1309,30 +1356,46 @@ export default function App() {
 
       </main>
 
-      {/* ─── 3. REPOSITORY SHARING INSTRUCTIONS FOOTER ─── */}
-      <footer className="bg-white border-t border-gray-200 py-8 px-6 mt-12 text-center">
-        <div className="max-w-3xl mx-auto flex flex-col items-center gap-4">
-          <BookOpen className="w-8 h-8 text-[#1a3a5c]" />
-          <h3 className="font-serif text-lg text-[#1a3a5c] font-normal">How to Share this Project on GitHub Professionally</h3>
-          <p className="text-xs text-gray-500 leading-relaxed max-w-2xl">
-            This workspace has been structured exactly into a professional repository format matching modern data science standards! We have saved your complete R Markdown code to R project locations, including a complete data quality dictionary, and high-fidelity test outputs in the top README.
-          </p>
-
-          <div className="flex flex-wrap gap-3 justify-center text-[11px] font-mono pt-2">
-            <span className="bg-gray-100 text-gray-700 px-3 py-1.5 rounded-lg border border-gray-100 leading-none flex items-center gap-1">
-              <code>ckd_classification.Rmd</code> written inside <code>/r_project/</code>
-            </span>
-            <span className="bg-gray-100 text-gray-700 px-3 py-1.5 rounded-lg border border-gray-100 leading-none flex items-center gap-1">
-              Sample UCI Dataset structured in <code>/r_project/data/</code>
-            </span>
-            <span className="bg-gray-150 text-[#1a3a5c] px-3 py-1.5 font-bold rounded-lg border border-gray-100 leading-none flex items-center gap-1">
-              Top level README generated successfully
-            </span>
+      {/* Elegant, minimal local development setup guide */}
+      <footer className="w-full border-t border-gray-100 bg-linear-to-b from-white to-gray-50/30 pt-10 pb-12 select-none">
+        <div className="max-w-4xl mx-auto px-6 grid grid-cols-1 md:grid-cols-2 gap-8 text-center md:text-left">
+          
+          {/* Node.js App Setup */}
+          <div className="flex flex-col items-center md:items-start border-b md:border-b-0 md:border-r border-gray-100 pb-6 md:pb-0 md:pr-8">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-100 border border-slate-200/50 rounded-full text-[10px] font-bold text-[#1a3a5c] mb-3">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              LOCAL ENVIRONMENT SETUP
+            </div>
+            <p className="text-[11px] text-slate-500 font-sans leading-relaxed">
+              Execute this interactive diagnostics workspace on your local machine by installing dependencies and deploying the server:
+            </p>
+            <div className="mt-4 flex flex-wrap justify-center md:justify-start items-center gap-2 font-mono text-[10px] text-slate-600">
+              <span className="px-2 py-0.5 bg-white border border-gray-200/80 rounded-md shadow-2xs">npm install</span>
+              <span className="text-gray-300 font-sans select-none">&rarr;</span>
+              <span className="px-2 py-0.5 bg-white border border-gray-200/80 rounded-md shadow-2xs">npm run dev</span>
+              <span className="text-gray-300 font-sans select-none">&rarr;</span>
+              <span className="px-2.5 py-0.5 bg-[#1a3a5c]/5 text-[#1a3a5c] border border-[#1a3a5c]/10 rounded-md font-bold">localhost:3000</span>
+            </div>
           </div>
 
-          <div className="text-xs text-slate-500 font-sans italic pt-4">
-            Designed for Amirali Firouzi. Feel free to use the top-right Settings or Export workflow in AI Studio to transfer this workspace directly to GitHub or compile it cleanly!
+          {/* R Markdown Setup */}
+          <div className="flex flex-col items-center md:items-start">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-indigo-50 border border-indigo-100 rounded-full text-[10px] font-bold text-indigo-700 mb-3">
+              <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
+              R MARKDOWN EXECUTION
+            </div>
+            <p className="text-[11px] text-slate-500 font-sans leading-relaxed">
+              Compile and execute the source R classification project (`r_project/ckd_classification.Rmd`) locally:
+            </p>
+            <div className="mt-4 flex flex-wrap justify-center md:justify-start items-center gap-2 font-mono text-[10px] text-indigo-600">
+              <span className="px-2 py-0.5 bg-white border border-indigo-200/80 rounded-md shadow-2xs">Open in RStudio</span>
+              <span className="text-gray-300 font-sans select-none">&rarr;</span>
+              <span className="px-2.5 py-0.5 bg-indigo-50 text-indigo-600 border border-indigo-500/10 rounded-md font-bold">Click "Knit"</span>
+              <span className="text-gray-300 font-sans select-none">or use:</span>
+              <span className="px-2 py-0.5 bg-white border border-gray-200/80 rounded-md shadow-2xs">rmarkdown::render()</span>
+            </div>
           </div>
+
         </div>
       </footer>
 

@@ -1,0 +1,840 @@
+{
+  "CKD_COLUMNS": [
+    {
+      "name": "age",
+      "type": "numeric",
+      "missing": 9,
+      "completeRate": 0.978,
+      "mean": 51.48,
+      "sd": 17.17
+    },
+    {
+      "name": "bp",
+      "type": "numeric",
+      "missing": 12,
+      "completeRate": 0.97,
+      "mean": 76.47,
+      "sd": 13.68
+    },
+    {
+      "name": "sg",
+      "type": "factor",
+      "missing": 47,
+      "completeRate": 0.883,
+      "levels": [
+        "1.005",
+        "1.010",
+        "1.015",
+        "1.020",
+        "1.025"
+      ]
+    },
+    {
+      "name": "al",
+      "type": "factor",
+      "missing": 46,
+      "completeRate": 0.885,
+      "levels": [
+        "0",
+        "1",
+        "2",
+        "3",
+        "4",
+        "5"
+      ]
+    },
+    {
+      "name": "su",
+      "type": "factor",
+      "missing": 49,
+      "completeRate": 0.878,
+      "levels": [
+        "0",
+        "1",
+        "2",
+        "3",
+        "4",
+        "5"
+      ]
+    },
+    {
+      "name": "rbc",
+      "type": "factor",
+      "missing": 152,
+      "completeRate": 0.620,
+      "levels": [
+        "normal",
+        "abnormal"
+      ]
+    },
+    {
+      "name": "pc",
+      "type": "factor",
+      "missing": 65,
+      "completeRate": 0.838,
+      "levels": [
+        "normal",
+        "abnormal"
+      ]
+    },
+    {
+      "name": "pcc",
+      "type": "factor",
+      "missing": 4,
+      "completeRate": 0.99,
+      "levels": [
+        "notpresent",
+        "present"
+      ]
+    },
+    {
+      "name": "ba",
+      "type": "factor",
+      "missing": 4,
+      "completeRate": 0.99,
+      "levels": [
+        "notpresent",
+        "present"
+      ]
+    },
+    {
+      "name": "bgr",
+      "type": "numeric",
+      "missing": 44,
+      "completeRate": 0.890,
+      "mean": 148.04,
+      "sd": 79.29
+    },
+    {
+      "name": "bu",
+      "type": "numeric",
+      "missing": 19,
+      "completeRate": 0.953,
+      "mean": 57.43,
+      "sd": 50.50
+    },
+    {
+      "name": "sc",
+      "type": "numeric",
+      "missing": 17,
+      "completeRate": 0.958,
+      "mean": 3.08,
+      "sd": 5.74
+    },
+    {
+      "name": "sod",
+      "type": "numeric",
+      "missing": 87,
+      "completeRate": 0.783,
+      "mean": 137.53,
+      "sd": 10.41
+    },
+    {
+      "name": "pot",
+      "type": "numeric",
+      "missing": 88,
+      "completeRate": 0.780,
+      "mean": 4.63,
+      "sd": 3.20
+    },
+    {
+      "name": "hemo",
+      "type": "numeric",
+      "missing": 52,
+      "completeRate": 0.870,
+      "mean": 12.53,
+      "sd": 2.91
+    },
+    {
+      "name": "pcv",
+      "type": "numeric",
+      "missing": 71,
+      "completeRate": 0.823,
+      "mean": 38.88,
+      "sd": 8.99
+    },
+    {
+      "name": "wc",
+      "type": "numeric",
+      "missing": 106,
+      "completeRate": 0.735,
+      "mean": 8406.88,
+      "sd": 2944.60
+    },
+    {
+      "name": "rc",
+      "type": "numeric",
+      "missing": 131,
+      "completeRate": 0.673,
+      "mean": 4.71,
+      "sd": 1.03
+    },
+    {
+      "name": "htn",
+      "type": "factor",
+      "missing": 2,
+      "completeRate": 0.995,
+      "levels": [
+        "yes",
+        "no"
+      ]
+    },
+    {
+      "name": "dm",
+      "type": "factor",
+      "missing": 2,
+      "completeRate": 0.995,
+      "levels": [
+        "yes",
+        "no"
+      ]
+    },
+    {
+      "name": "cad",
+      "type": "factor",
+      "missing": 2,
+      "completeRate": 0.995,
+      "levels": [
+        "yes",
+        "no"
+      ]
+    },
+    {
+      "name": "appet",
+      "type": "factor",
+      "missing": 1,
+      "completeRate": 0.998,
+      "levels": [
+        "good",
+        "poor"
+      ]
+    },
+    {
+      "name": "pe",
+      "type": "factor",
+      "missing": 1,
+      "completeRate": 0.998,
+      "levels": [
+        "yes",
+        "no"
+      ]
+    },
+    {
+      "name": "ane",
+      "type": "factor",
+      "missing": 1,
+      "completeRate": 0.998,
+      "levels": [
+        "yes",
+        "no"
+      ]
+    }
+  ],
+  "MISSING_DATA": [
+    { "variable": "rbc", "count": 152 },
+    { "variable": "rc", "count": 131 },
+    { "variable": "wc", "count": 106 },
+    { "variable": "pot", "count": 88 },
+    { "variable": "sod", "count": 87 },
+    { "variable": "pcv", "count": 71 },
+    { "variable": "pc", "count": 65 },
+    { "variable": "hemo", "count": 52 },
+    { "variable": "su", "count": 49 },
+    { "variable": "sg", "count": 47 },
+    { "variable": "al", "count": 46 },
+    { "variable": "bgr", "count": 44 },
+    { "variable": "bu", "count": 19 },
+    { "variable": "sc", "count": 17 },
+    { "variable": "bp", "count": 12 },
+    { "variable": "age", "count": 9 },
+    { "variable": "pcc", "count": 4 },
+    { "variable": "ba", "count": 4 },
+    { "variable": "htn", "count": 2 },
+    { "variable": "dm", "count": 2 },
+    { "variable": "cad", "count": 2 },
+    { "variable": "appet", "count": 1 },
+    { "variable": "pe", "count": 1 },
+    { "variable": "ane", "count": 1 }
+  ],
+  "HIST_DATA": {
+    "hemo": {
+      "label": "Hemoglobin",
+      "unit": "g/dL",
+      "min": 5,
+      "max": 17,
+      "healthy": [
+        13.8,
+        14.6,
+        13.6,
+        15.9,
+        13.9,
+        15.8,
+        14.2,
+        15.6,
+        15,
+        15,
+        16.5,
+        15,
+        13.6,
+        16.1,
+        15,
+        16.1,
+        15.4,
+        15,
+        14.3,
+        15,
+        16.5,
+        15.5,
+        15.6,
+        15,
+        15.6,
+        15,
+        15.8,
+        16,
+        15.4,
+        14.2,
+        14.6,
+        15,
+        16.1
+      ],
+      "ckd": [
+        15.4,
+        11.3,
+        9.6,
+        11.2,
+        11.6,
+        12.2,
+        12.4,
+        12.4,
+        10.8,
+        9.5,
+        9.4,
+        10.8,
+        9.7,
+        9.8,
+        5.6,
+        7.6,
+        12.6
+      ],
+      "healthyBins": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        4,
+        16,
+        13
+      ],
+      "ckdBins": [
+        1,
+        1,
+        1,
+        6,
+        6,
+        1,
+        1,
+        0
+      ],
+      "step": 1.5
+    },
+    "sc": {
+      "label": "Serum Creatinine",
+      "unit": "mg/dL",
+      "min": 0.4,
+      "max": 24,
+      "healthy": [
+        1.1,
+        1.2,
+        0.6,
+        0.9,
+        0.9,
+        0.6,
+        1,
+        1.1,
+        1.2,
+        0.5,
+        1.2,
+        0.9,
+        0.5,
+        0.6,
+        0.6,
+        1.1,
+        1.2,
+        1.2,
+        1.1,
+        0.8,
+        1.2,
+        0.9,
+        1.1,
+        0.8,
+        1.2,
+        1,
+        0.8,
+        1.2,
+        1.1,
+        1.2,
+        1.1,
+        0.9,
+        1
+      ],
+      "ckd": [
+        1.2,
+        0.8,
+        1.8,
+        3.8,
+        1.4,
+        1.1,
+        24,
+        1.1,
+        1.9,
+        7.2,
+        5.9,
+        2.7,
+        2.1,
+        4.6,
+        4.1,
+        9.6,
+        2.2
+      ],
+      "healthyBins": [
+        33,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "ckdBins": [
+        10,
+        4,
+        1,
+        1,
+        0,
+        0,
+        0,
+        1
+      ],
+      "step": 2.95
+    },
+    "bgr": {
+      "label": "Blood Glucose Random",
+      "unit": "mg/dL",
+      "min": 70,
+      "max": 490,
+      "healthy": [
+        102,
+        111,
+        115,
+        96,
+        91,
+        100,
+        114,
+        130,
+        117,
+        89,
+        120,
+        94,
+        137,
+        100,
+        99,
+        131,
+        125,
+        100,
+        93,
+        111,
+        75,
+        130,
+        85,
+        114,
+        109,
+        99,
+        122,
+        133,
+        115,
+        120,
+        120,
+        100,
+        100
+      ],
+      "ckd": [
+        121,
+        230,
+        423,
+        117,
+        106,
+        74,
+        100,
+        410,
+        138,
+        70,
+        490,
+        380,
+        208,
+        98,
+        157,
+        76,
+        99
+      ],
+      "healthyBins": [
+        27,
+        6,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "ckdBins": [
+        9,
+        2,
+        1,
+        1,
+        0,
+        1,
+        2,
+        1
+      ],
+      "step": 52.5
+    },
+    "age": {
+      "label": "Patient Age",
+      "unit": "years",
+      "min": 5,
+      "max": 80,
+      "healthy": [
+        48,
+        35,
+        29,
+        44,
+        42,
+        12,
+        17,
+        43,
+        45,
+        33,
+        49,
+        27,
+        50,
+        34,
+        38,
+        30,
+        22,
+        62,
+        65,
+        23,
+        42,
+        30,
+        36,
+        45,
+        50,
+        51,
+        54,
+        55,
+        59,
+        60,
+        61,
+        62,
+        63
+      ],
+      "ckd": [
+        48,
+        7,
+        62,
+        48,
+        51,
+        60,
+        68,
+        24,
+        52,
+        53,
+        50,
+        63,
+        68,
+        68,
+        68,
+        40,
+        47
+      ],
+      "healthyBins": [
+        1,
+        3,
+        5,
+        6,
+        9,
+        5,
+        4,
+        0
+      ],
+      "ckdBins": [
+        1,
+        0,
+        1,
+        1,
+        5,
+        3,
+        6,
+        0
+      ],
+      "step": 9.375
+    }
+  },
+  "BOX_DATA": {
+    "hemo": {
+      "label": "Hemoglobin",
+      "unit": "g/dL",
+      "healthy": {
+        "min": 13.6,
+        "q1": 14.6,
+        "med": 15,
+        "q3": 15.8,
+        "max": 16.5,
+        "outliers": []
+      },
+      "ckd": {
+        "min": 7.6,
+        "q1": 9.6,
+        "med": 10.8,
+        "q3": 12.2,
+        "max": 15.4,
+        "outliers": [
+          5.6
+        ]
+      }
+    },
+    "sc": {
+      "label": "Serum Creatinine",
+      "unit": "mg/dL",
+      "healthy": {
+        "min": 0.5,
+        "q1": 0.8,
+        "med": 1,
+        "q3": 1.2,
+        "max": 1.2,
+        "outliers": []
+      },
+      "ckd": {
+        "min": 0.8,
+        "q1": 1.4,
+        "med": 2.2,
+        "q3": 4.6,
+        "max": 7.2,
+        "outliers": [
+          9.6,
+          24
+        ]
+      }
+    },
+    "bp": {
+      "label": "Blood Pressure",
+      "unit": "mm/Hg",
+      "healthy": {
+        "min": 60,
+        "q1": 70,
+        "med": 80,
+        "q3": 80,
+        "max": 80,
+        "outliers": []
+      },
+      "ckd": {
+        "min": 60,
+        "q1": 70,
+        "med": 70,
+        "q3": 80,
+        "max": 90,
+        "outliers": [
+          50,
+          100
+        ]
+      }
+    }
+  },
+  "CORR_MATRIX": [
+    [
+      1,
+      0.492,
+      0.029,
+      -0.015,
+      0.293,
+      -0.039,
+      -0.695,
+      -0.418,
+      -0.447,
+      -0.524
+    ],
+    [
+      0.492,
+      1,
+      0.065,
+      0.163,
+      0.288,
+      0.264,
+      -0.346,
+      -0.736,
+      -0.699,
+      -0.705
+    ],
+    [
+      0.029,
+      0.065,
+      1,
+      -0.26,
+      0.037,
+      0.11,
+      -0.1,
+      -0.413,
+      -0.341,
+      -0.319
+    ],
+    [
+      -0.015,
+      0.163,
+      -0.26,
+      1,
+      0.348,
+      -0.063,
+      0.104,
+      -0.11,
+      -0.12,
+      -0.044
+    ],
+    [
+      0.293,
+      0.288,
+      0.037,
+      0.348,
+      1,
+      0.067,
+      -0.244,
+      -0.308,
+      -0.382,
+      -0.397
+    ],
+    [
+      -0.039,
+      0.264,
+      0.11,
+      -0.063,
+      0.067,
+      1,
+      0.211,
+      -0.233,
+      -0.162,
+      -0.144
+    ],
+    [
+      -0.695,
+      -0.346,
+      -0.1,
+      0.104,
+      -0.244,
+      0.211,
+      1,
+      0.404,
+      0.501,
+      0.504
+    ],
+    [
+      -0.418,
+      -0.736,
+      -0.413,
+      -0.11,
+      -0.308,
+      -0.233,
+      0.404,
+      1,
+      0.892,
+      0.847
+    ],
+    [
+      -0.447,
+      -0.699,
+      -0.341,
+      -0.12,
+      -0.382,
+      -0.162,
+      0.501,
+      0.892,
+      1,
+      0.827
+    ],
+    [
+      -0.524,
+      -0.705,
+      -0.319,
+      -0.044,
+      -0.397,
+      -0.144,
+      0.504,
+      0.847,
+      0.827,
+      1
+    ]
+  ],
+  "MODEL_WEIGHTS": {
+    "weights": [
+      0.12040135861275232,
+      -0.17671398773367128,
+      0.6548003738722863,
+      0.34335352195067737,
+      0.7340929489705836,
+      -2.4191249705519664,
+      1.4438869428372247,
+      1.4460168731269947
+    ],
+    "intercept": -1.0139722066588224,
+    "stdParams": {
+      "age": {
+        "mean": 45.86,
+        "sd": 15.470854757859229
+      },
+      "bp": {
+        "mean": 74.5,
+        "sd": 9.381375383259783
+      },
+      "bgr": {
+        "mean": 137.88,
+        "sd": 90.97042354075126
+      },
+      "bu": {
+        "mean": 40.48,
+        "sd": 26.66514961671194
+      },
+      "sc": {
+        "mean": 2.146,
+        "sd": 3.6116144843647775
+      },
+      "hemo": {
+        "mean": 13.632000000000003,
+        "sd": 2.552425017387926
+      }
+    },
+    "means": {
+      "age": 45.86,
+      "bp": 74.5,
+      "bgr": 137.88,
+      "bu": 40.48,
+      "sc": 2.146,
+      "hemo": 13.632000000000003,
+      "sod": 137.3,
+      "pot": 4.249999999999999,
+      "pcv": 41.84,
+      "wc": 8410,
+      "rc": 4.906000000000001,
+      "al": 0.78,
+      "su": 0.28
+    }
+  },
+  "METRICS": {
+    "accuracy": 0.96,
+    "sensitivity": 0.8823529411764706,
+    "specificity": 1,
+    "tp": 15,
+    "tn": 33,
+    "fp": 0,
+    "fn": 2
+  }
+}
